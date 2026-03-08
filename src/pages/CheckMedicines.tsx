@@ -212,7 +212,7 @@ const CheckMedicines = () => {
         <div className="relative container mx-auto px-4 max-w-2xl text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/15 bg-white/10 text-primary-glow text-[10px] font-semibold tracking-wider uppercase mb-4">
             <Zap className="w-3 h-3" />
-            Powered by Google Gemini AI
+            {t('upload.poweredBy')}
           </div>
           <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight text-white">{t('upload.title')}</h1>
           <p className="text-sm text-white/50">{t('upload.subtitle')}</p>

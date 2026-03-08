@@ -50,116 +50,115 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const userPrompt = `Analyze these medicines for a patient in India: ${medicines.join(", ")}
 
 Check ALL pairwise drug interactions, food interactions, and create an optimal dosing schedule. Use Indian brand names and prices in INR.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "medicine_safety_report",
-              description: "Return a complete medicine safety analysis report",
-              parameters: {
-                type: "object",
-                properties: {
-                  medicines: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string" },
-                        name: { type: "string", description: "Brand name with dosage" },
-                        genericName: { type: "string", description: "Generic/salt name" },
-                        dosage: { type: "string", description: "Dosage instructions" },
-                        type: { type: "string", enum: ["tablet", "capsule", "syrup", "injection"] },
-                        price: { type: "number", description: "MRP in INR" },
-                        genericPrice: { type: "number", description: "Jan Aushadhi price in INR" },
-                        genericBrand: { type: "string", description: "Jan Aushadhi alternative name" },
-                      },
-                      required: ["id", "name", "genericName", "dosage", "type", "price"],
-                      additionalProperties: false,
-                    },
-                  },
-                  interactions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string" },
-                        medicine1: { type: "string" },
-                        medicine2: { type: "string" },
-                        severity: { type: "string", enum: ["critical", "moderate", "minor"] },
-                        description: { type: "string", description: "Clinical explanation in simple language" },
-                        recommendation: { type: "string", description: "What the patient should do" },
-                      },
-                      required: ["id", "medicine1", "medicine2", "severity", "description", "recommendation"],
-                      additionalProperties: false,
-                    },
-                  },
-                  foodInteractions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        medicine: { type: "string" },
-                        food: { type: "string" },
-                        icon: { type: "string", description: "Single emoji for the food" },
-                        severity: { type: "string", enum: ["avoid", "caution", "timing"] },
-                        description: { type: "string" },
-                      },
-                      required: ["medicine", "food", "icon", "severity", "description"],
-                      additionalProperties: false,
-                    },
-                  },
-                  schedule: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        time: { type: "string", description: "Time like 6:00 AM" },
-                        label: { type: "string", description: "e.g. Empty Stomach, After Breakfast" },
-                        medicines: {
-                          type: "array",
-                          items: { type: "string" },
-                          description: "Medicine names for this time slot",
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            { role: "user", parts: [{ text: SYSTEM_PROMPT + "\n\n" + userPrompt }] },
+          ],
+          tools: [
+            {
+              functionDeclarations: [
+                {
+                  name: "medicine_safety_report",
+                  description: "Return a complete medicine safety analysis report",
+                  parameters: {
+                    type: "OBJECT",
+                    properties: {
+                      medicines: {
+                        type: "ARRAY",
+                        items: {
+                          type: "OBJECT",
+                          properties: {
+                            id: { type: "STRING" },
+                            name: { type: "STRING", description: "Brand name with dosage" },
+                            genericName: { type: "STRING", description: "Generic/salt name" },
+                            dosage: { type: "STRING", description: "Dosage instructions" },
+                            type: { type: "STRING", description: "tablet, capsule, syrup, or injection" },
+                            price: { type: "NUMBER", description: "MRP in INR" },
+                            genericPrice: { type: "NUMBER", description: "Jan Aushadhi price in INR" },
+                            genericBrand: { type: "STRING", description: "Jan Aushadhi alternative name" },
+                          },
+                          required: ["id", "name", "genericName", "dosage", "type", "price"],
                         },
                       },
-                      required: ["time", "label", "medicines"],
-                      additionalProperties: false,
+                      interactions: {
+                        type: "ARRAY",
+                        items: {
+                          type: "OBJECT",
+                          properties: {
+                            id: { type: "STRING" },
+                            medicine1: { type: "STRING" },
+                            medicine2: { type: "STRING" },
+                            severity: { type: "STRING", description: "critical, moderate, or minor" },
+                            description: { type: "STRING", description: "Clinical explanation in simple language" },
+                            recommendation: { type: "STRING", description: "What the patient should do" },
+                          },
+                          required: ["id", "medicine1", "medicine2", "severity", "description", "recommendation"],
+                        },
+                      },
+                      foodInteractions: {
+                        type: "ARRAY",
+                        items: {
+                          type: "OBJECT",
+                          properties: {
+                            medicine: { type: "STRING" },
+                            food: { type: "STRING" },
+                            icon: { type: "STRING", description: "Single emoji for the food" },
+                            severity: { type: "STRING", description: "avoid, caution, or timing" },
+                            description: { type: "STRING" },
+                          },
+                          required: ["medicine", "food", "icon", "severity", "description"],
+                        },
+                      },
+                      schedule: {
+                        type: "ARRAY",
+                        items: {
+                          type: "OBJECT",
+                          properties: {
+                            time: { type: "STRING", description: "Time like 6:00 AM" },
+                            label: { type: "STRING", description: "e.g. Empty Stomach, After Breakfast" },
+                            medicines: {
+                              type: "ARRAY",
+                              items: { type: "STRING" },
+                              description: "Medicine names for this time slot",
+                            },
+                          },
+                          required: ["time", "label", "medicines"],
+                        },
+                      },
+                      summary: {
+                        type: "STRING",
+                        description: "Brief 1-2 sentence overall safety summary for the patient",
+                      },
                     },
-                  },
-                  summary: {
-                    type: "string",
-                    description: "Brief 1-2 sentence overall safety summary for the patient",
+                    required: ["medicines", "interactions", "foodInteractions", "schedule", "summary"],
                   },
                 },
-                required: ["medicines", "interactions", "foodInteractions", "schedule", "summary"],
-                additionalProperties: false,
-              },
+              ],
+            },
+          ],
+          toolConfig: {
+            functionCallingConfig: {
+              mode: "ANY",
+              allowedFunctionNames: ["medicine_safety_report"],
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "medicine_safety_report" } },
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -168,26 +167,21 @@ Check ALL pairwise drug interactions, food interactions, and create an optimal d
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI usage limit reached. Please try again later." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      console.error("Gemini API error:", response.status, errorText);
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
 
-    // Extract tool call result
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
+    // Extract function call result from Gemini response
+    const parts = data.candidates?.[0]?.content?.parts;
+    const functionCall = parts?.find((p: any) => p.functionCall)?.functionCall;
+    if (!functionCall?.args) {
       throw new Error("AI did not return structured data");
     }
 
-    const report = JSON.parse(toolCall.function.arguments);
+    const report = functionCall.args;
 
     return new Response(JSON.stringify(report), {
       status: 200,

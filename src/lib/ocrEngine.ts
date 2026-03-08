@@ -1,4 +1,5 @@
 import Tesseract from 'tesseract.js';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface OCRResult {
   rawText: string;
@@ -6,9 +7,55 @@ export interface OCRResult {
   medicineNames: string[];
 }
 
-// Common Indian medicine name patterns to look for in OCR text
+/**
+ * Convert a File to base64 string (without the data URI prefix)
+ */
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the "data:image/...;base64," prefix
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Primary OCR: Use Gemini Vision API for accurate medicine detection
+ */
+async function runVisionOCR(imageFile: File): Promise<{ medicines: string[]; rawText: string } | null> {
+  try {
+    const imageBase64 = await fileToBase64(imageFile);
+    const { data, error } = await supabase.functions.invoke('ocr-vision', {
+      body: { imageBase64, mimeType: imageFile.type || 'image/jpeg' },
+    });
+
+    if (error) {
+      console.error('Vision OCR error:', error);
+      return null;
+    }
+
+    if (data?.error) {
+      console.error('Vision OCR returned error:', data.error);
+      return null;
+    }
+
+    return {
+      medicines: data.medicines || [],
+      rawText: data.rawText || '',
+    };
+  } catch (err) {
+    console.error('Vision OCR failed:', err);
+    return null;
+  }
+}
+
+// Common Indian medicine name patterns for Tesseract fallback
 const MEDICINE_KEYWORDS = [
-  // Generic names
   'amlodipine', 'metformin', 'diclofenac', 'levothyroxine', 'aspirin',
   'paracetamol', 'omeprazole', 'pantoprazole', 'atorvastatin', 'losartan',
   'telmisartan', 'ramipril', 'enalapril', 'glimepiride', 'sitagliptin',
@@ -17,7 +64,6 @@ const MEDICINE_KEYWORDS = [
   'hydrochlorothiazide', 'spironolactone', 'prednisolone', 'dexamethasone',
   'ranitidine', 'domperidone', 'ondansetron', 'ibuprofen', 'naproxen',
   'gabapentin', 'pregabalin', 'duloxetine', 'escitalopram', 'sertraline',
-  // Indian brand names
   'thyronorm', 'ecosprin', 'crocin', 'dolo', 'combiflam', 'saridon',
   'voveran', 'volini', 'glycomet', 'galvus', 'januvia', 'amaryl',
   'telma', 'stamlo', 'amlong', 'cardace', 'envas', 'clopitab',
@@ -26,31 +72,20 @@ const MEDICINE_KEYWORDS = [
   'zifi', 'azee', 'augmentin', 'monocef', 'taxim',
 ];
 
-// Dosage patterns
-const DOSAGE_PATTERN = /\b(\d+\.?\d*)\s*(mg|mcg|ml|g|iu|units?)\b/gi;
-
-/**
- * Clean and normalize OCR text
- */
 function cleanOCRText(text: string): string {
   return text
-    .replace(/[|\\{}[\]]/g, '') // Remove OCR artifacts
-    .replace(/\s+/g, ' ')       // Normalize whitespace
-    .replace(/[^\w\s.,-]/g, ' ') // Keep only useful chars
+    .replace(/[|\\{}[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[^\w\s.,-]/g, ' ')
     .trim();
 }
 
-/**
- * Extract medicine names from OCR text using fuzzy matching
- */
 function extractMedicineNames(text: string): string[] {
   const normalizedText = text.toLowerCase();
   const found: string[] = [];
 
   for (const keyword of MEDICINE_KEYWORDS) {
-    // Check for exact or near match (allowing 1-2 char OCR errors)
     if (normalizedText.includes(keyword)) {
-      // Try to capture with dosage
       const regex = new RegExp(
         `(${keyword}[\\w]*)[\\s-]*(\\d+\\.?\\d*\\s*(?:mg|mcg|ml|g))?`,
         'gi'
@@ -66,7 +101,6 @@ function extractMedicineNames(text: string): string[] {
     }
   }
 
-  // Also extract any word followed by a dosage pattern that we might have missed
   const dosageMatches = text.matchAll(/\b([A-Za-z]{3,})\s+(\d+\.?\d*\s*(?:mg|mcg|ml|g))\b/gi);
   for (const match of dosageMatches) {
     const name = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
@@ -77,59 +111,65 @@ function extractMedicineNames(text: string): string[] {
     }
   }
 
-  // Deduplicate
-  const unique = [...new Set(found.map(f => f.trim()))];
-  return unique;
+  return [...new Set(found.map(f => f.trim()))];
 }
 
 /**
- * Run OCR on an image file and extract medicine names
+ * Run OCR on an image file — Gemini Vision first, Tesseract.js fallback
  */
 export async function runOCR(
   imageFile: File,
-  onProgress?: (progress: number, status: string) => void
+  onProgress?: (progress: number, status?: string) => void
 ): Promise<OCRResult> {
-  onProgress?.(0, 'Initializing OCR engine...');
+  onProgress?.(10, 'Sending image to AI Vision...');
+
+  // 1. Try Gemini Vision API first (much better accuracy)
+  const visionResult = await runVisionOCR(imageFile);
+
+  if (visionResult && visionResult.medicines.length > 0) {
+    onProgress?.(90, 'Medicines detected via AI Vision!');
+    onProgress?.(100, 'Done!');
+    return {
+      rawText: `[AI Vision] ${visionResult.medicines.join(', ')}`,
+      confidence: 95,
+      medicineNames: visionResult.medicines,
+    };
+  }
+
+  // 2. Fallback to Tesseract.js if Vision fails or finds nothing
+  onProgress?.(20, 'Falling back to OCR engine...');
 
   const result = await Tesseract.recognize(imageFile, 'eng', {
     logger: (m) => {
       if (m.status === 'recognizing text' && typeof m.progress === 'number') {
-        onProgress?.(Math.round(m.progress * 60), 'Reading medicine text...');
+        onProgress?.(20 + Math.round(m.progress * 50), 'Reading medicine text...');
       }
     },
   });
 
-  onProgress?.(60, 'Identifying medicines...');
+  onProgress?.(75, 'Identifying medicines...');
 
   const rawText = result.data.text;
   const confidence = result.data.confidence;
   const cleanedText = cleanOCRText(rawText);
 
-  onProgress?.(80, 'Extracting medicine names...');
+  onProgress?.(90, 'Extracting medicine names...');
 
   const medicineNames = extractMedicineNames(cleanedText);
 
   onProgress?.(100, 'Done!');
 
-  return {
-    rawText: cleanedText,
-    confidence,
-    medicineNames,
-  };
+  return { rawText: cleanedText, confidence, medicineNames };
 }
 
 /**
  * Parse manual text input for medicine names
  */
 export function parseManualInput(text: string): string[] {
-  // Split by newlines, commas, or semicolons
   const lines = text.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
-  
-  // Also try to extract from continuous text
   if (lines.length <= 1 && text.length > 20) {
     const extracted = extractMedicineNames(text);
     if (extracted.length > 0) return extracted;
   }
-
   return lines;
 }

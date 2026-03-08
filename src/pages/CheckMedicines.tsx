@@ -293,7 +293,7 @@ const CheckMedicines = () => {
                           }}
                         >
                           <Camera className="w-3.5 h-3.5" />
-                           Take Photo
+                           {t('upload.takePhoto')}
                         </Button>
                       </div>
                       <p className="text-[10px] text-muted-foreground/60 mt-5">

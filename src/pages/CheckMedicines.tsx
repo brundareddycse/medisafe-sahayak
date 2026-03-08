@@ -297,7 +297,7 @@ const CheckMedicines = () => {
                         </Button>
                       </div>
                       <p className="text-[10px] text-muted-foreground/60 mt-5">
-                        JPG, PNG • Medicine strips, boxes, or prescriptions
+                        JPG, PNG • {t('upload.fileHint').replace('JPG, PNG • ', '')}
                       </p>
                     </motion.div>
                   ) : (

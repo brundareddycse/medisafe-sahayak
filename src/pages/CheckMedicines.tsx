@@ -17,8 +17,17 @@ const processingSteps = [
 const severityConfig = {
   critical: { color: 'border-destructive/50 bg-destructive/5', icon: AlertTriangle, iconColor: 'text-destructive', badge: 'bg-destructive text-destructive-foreground', label: 'Critical' },
   moderate: { color: 'border-warning/50 bg-warning/5', icon: AlertCircle, iconColor: 'text-warning', badge: 'bg-warning text-warning-foreground', label: 'Moderate' },
-  minor: { color: 'border-success/50 bg-success/5', icon: Info, iconColor: 'text-success', badge: 'bg-success text-success-foreground', label: 'Safe' },
+  minor: { color: 'border-success/50 bg-success/5', icon: Info, iconColor: 'text-success', badge: 'bg-success text-success-foreground', label: 'Minor' },
 };
+
+const foodSeverityConfig = {
+  avoid: { badge: 'bg-destructive text-destructive-foreground', label: '🚫 Avoid' },
+  caution: { badge: 'bg-warning text-warning-foreground', label: '⚠️ Caution' },
+  timing: { badge: 'bg-primary text-primary-foreground', label: '🕐 Timing' },
+};
+
+const severityOrder = { critical: 0, moderate: 1, minor: 2 };
+const foodSeverityOrder = { avoid: 0, caution: 1, timing: 2 };
 
 const CheckMedicines = () => {
   const { t } = useLanguage();

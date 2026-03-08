@@ -540,8 +540,8 @@ const CheckMedicines = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-muted-foreground">{med.dosage}</div>
-                        {med.genericPrice && (
-                          <div className="text-[10px] text-success font-bold">Save ₹{med.price - (med.genericPrice || 0)}</div>
+                         {med.genericPrice && (
+                           <div className="text-[10px] text-success font-bold">{t('results.save')} ₹{med.price - (med.genericPrice || 0)}</div>
                         )}
                       </div>
                     </motion.div>

@@ -167,26 +167,21 @@ Check ALL pairwise drug interactions, food interactions, and create an optimal d
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI usage limit reached. Please try again later." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      console.error("Gemini API error:", response.status, errorText);
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
 
-    // Extract tool call result
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
+    // Extract function call result from Gemini response
+    const parts = data.candidates?.[0]?.content?.parts;
+    const functionCall = parts?.find((p: any) => p.functionCall)?.functionCall;
+    if (!functionCall?.args) {
       throw new Error("AI did not return structured data");
     }
 
-    const report = JSON.parse(toolCall.function.arguments);
+    const report = functionCall.args;
 
     return new Response(JSON.stringify(report), {
       status: 200,

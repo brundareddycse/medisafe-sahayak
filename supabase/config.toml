@@ -2,3 +2,6 @@ project_id = "prftqzhoofsbupwrvrvq"
 
 [functions.analyze-medicines]
 verify_jwt = false
+
+[functions.ocr-vision]
+verify_jwt = false

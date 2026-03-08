@@ -1,17 +1,19 @@
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, Keyboard, ArrowRight, FlaskConical, Sparkles, Check, AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp, Volume2, RotateCcw, Clock, UtensilsCrossed, IndianRupee, Pill, X, Image as ImageIcon, FileText } from 'lucide-react';
+import { Camera, Upload, Keyboard, ArrowRight, FlaskConical, Sparkles, Check, AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp, Volume2, RotateCcw, Clock, UtensilsCrossed, IndianRupee, Pill, X, Image as ImageIcon, FileText, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/languageContext';
-import { sampleMedicines, sampleInteractions, sampleFoodInteractions, sampleSchedule, Medicine, Interaction, FoodInteraction } from '@/lib/mockData';
+import { sampleMedicines, sampleInteractions, sampleFoodInteractions, sampleSchedule, Medicine, Interaction, FoodInteraction, ScheduleItem } from '@/lib/mockData';
 import { runOCR, parseManualInput } from '@/lib/ocrEngine';
+import { analyzeMedicines, AIAnalysisResult } from '@/lib/aiAnalysis';
+import { toast } from 'sonner';
 
 type AppState = 'input' | 'processing' | 'results';
 
 const processingSteps = [
   { key: 'reading', icon: Camera, label: 'Reading medicine text...' },
   { key: 'identifying', icon: FlaskConical, label: 'Identifying medicines...' },
-  { key: 'checking', icon: Sparkles, label: 'Checking interactions...' },
+  { key: 'checking', icon: Sparkles, label: 'AI analyzing interactions...' },
   { key: 'generating', icon: Check, label: 'Generating safety report...' },
 ];
 
@@ -30,37 +32,6 @@ const foodSeverityConfig = {
 const severityOrder = { critical: 0, moderate: 1, minor: 2 };
 const foodSeverityOrder = { avoid: 0, caution: 1, timing: 2 };
 
-/** Match detected names against our medicine database */
-function matchMedicines(detectedNames: string[]): Medicine[] {
-  const matched: Medicine[] = [];
-  for (const name of detectedNames) {
-    const lower = name.toLowerCase();
-    const found = sampleMedicines.find(m =>
-      lower.includes(m.name.toLowerCase().split(' ')[0]) ||
-      lower.includes(m.genericName.toLowerCase().split(' ')[0]) ||
-      m.name.toLowerCase().includes(lower.split(' ')[0])
-    );
-    if (found && !matched.some(m => m.id === found.id)) {
-      matched.push(found);
-    }
-  }
-  return matched;
-}
-
-/** Filter interactions for matched medicines only */
-function filterInteractions(medicines: Medicine[]): Interaction[] {
-  const names = medicines.map(m => m.name);
-  return sampleInteractions.filter(i =>
-    names.includes(i.medicine1) && names.includes(i.medicine2)
-  );
-}
-
-/** Filter food interactions for matched medicines only */
-function filterFoodInteractions(medicines: Medicine[]): FoodInteraction[] {
-  const names = medicines.map(m => m.name);
-  return sampleFoodInteractions.filter(fi => names.includes(fi.medicine));
-}
-
 const CheckMedicines = () => {
   const { t } = useLanguage();
   const [state, setState] = useState<AppState>('input');
@@ -75,11 +46,14 @@ const CheckMedicines = () => {
   const [ocrRawText, setOcrRawText] = useState('');
   const [detectedNames, setDetectedNames] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [aiPowered, setAiPowered] = useState(false);
+  const [aiSummary, setAiSummary] = useState('');
 
-  // Results state - dynamically computed from detected medicines
+  // Results state
   const [matchedMedicines, setMatchedMedicines] = useState<Medicine[]>([]);
   const [activeInteractions, setActiveInteractions] = useState<Interaction[]>([]);
   const [activeFoodInteractions, setActiveFoodInteractions] = useState<FoodInteraction[]>([]);
+  const [activeSchedule, setActiveSchedule] = useState<ScheduleItem[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,6 +85,47 @@ const CheckMedicines = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  /** Run AI analysis on medicine names */
+  const runAIAnalysis = async (names: string[]) => {
+    setCurrentStep(2); // "AI analyzing interactions..."
+    try {
+      const result = await analyzeMedicines(names);
+      setAiPowered(true);
+      setAiSummary(result.summary || '');
+      setMatchedMedicines(result.medicines);
+      setActiveInteractions(result.interactions);
+      setActiveFoodInteractions(result.foodInteractions);
+      setActiveSchedule(result.schedule);
+      setCurrentStep(3);
+      setTimeout(() => setState('results'), 600);
+    } catch (err) {
+      console.error('AI analysis failed, falling back to local data:', err);
+      toast.error('AI analysis unavailable, using local database', { duration: 4000 });
+      // Fallback to local mock matching
+      fallbackToLocalData(names);
+    }
+  };
+
+  /** Fallback when AI is unavailable */
+  const fallbackToLocalData = (names: string[]) => {
+    setAiPowered(false);
+    const lower = names.map(n => n.toLowerCase());
+    const medicines = sampleMedicines.filter(m =>
+      lower.some(n =>
+        n.includes(m.name.toLowerCase().split(' ')[0]) ||
+        m.name.toLowerCase().includes(n.split(' ')[0])
+      )
+    );
+    const finalMeds = medicines.length > 0 ? medicines : sampleMedicines;
+    const medNames = finalMeds.map(m => m.name);
+    setMatchedMedicines(finalMeds);
+    setActiveInteractions(sampleInteractions.filter(i => medNames.includes(i.medicine1) && medNames.includes(i.medicine2)));
+    setActiveFoodInteractions(sampleFoodInteractions.filter(fi => medNames.includes(fi.medicine)));
+    setActiveSchedule(sampleSchedule.filter(s => s.medicines.some(m => medNames.includes(m))));
+    setCurrentStep(3);
+    setTimeout(() => setState('results'), 600);
+  };
+
   const processWithOCR = async () => {
     if (!uploadedFile) return;
     setState('processing');
@@ -118,63 +133,50 @@ const CheckMedicines = () => {
     setOcrProgress(0);
 
     try {
-      const result = await runOCR(uploadedFile, (progress, status) => {
+      const result = await runOCR(uploadedFile, (progress) => {
         setOcrProgress(progress);
         if (progress < 60) setCurrentStep(0);
         else if (progress < 80) setCurrentStep(1);
-        else if (progress < 100) setCurrentStep(2);
-        else setCurrentStep(3);
       });
 
       setOcrRawText(result.rawText);
       setDetectedNames(result.medicineNames);
+      setCurrentStep(1);
 
-      // Match against database
-      const medicines = result.medicineNames.length > 0
-        ? matchMedicines(result.medicineNames)
-        : sampleMedicines; // fallback to demo if nothing detected
-
-      setMatchedMedicines(medicines);
-      setActiveInteractions(filterInteractions(medicines));
-      setActiveFoodInteractions(filterFoodInteractions(medicines));
-
-      setCurrentStep(3);
-      setTimeout(() => setState('results'), 800);
+      if (result.medicineNames.length > 0) {
+        await runAIAnalysis(result.medicineNames);
+      } else {
+        toast.info('No medicines detected from image. Using demo data.');
+        setDetectedNames(sampleMedicines.map(m => m.name));
+        await runAIAnalysis(sampleMedicines.map(m => m.name));
+      }
     } catch (err) {
       console.error('OCR failed:', err);
-      // Fallback to demo data
-      setMatchedMedicines(sampleMedicines);
-      setActiveInteractions(sampleInteractions);
-      setActiveFoodInteractions(sampleFoodInteractions);
-      setCurrentStep(3);
-      setTimeout(() => setState('results'), 800);
+      toast.error('Could not read image. Using demo data.');
+      setDetectedNames(sampleMedicines.map(m => m.name));
+      await runAIAnalysis(sampleMedicines.map(m => m.name));
     }
   };
 
-  const processManualInput = () => {
+  const processManualInput = async () => {
     setState('processing');
     setCurrentStep(0);
 
     const names = parseManualInput(manualInput);
     setDetectedNames(names);
 
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      if (step >= processingSteps.length) {
-        clearInterval(interval);
+    // Step through reading/identifying quickly, then do AI
+    setCurrentStep(0);
+    await new Promise(r => setTimeout(r, 500));
+    setCurrentStep(1);
+    await new Promise(r => setTimeout(r, 500));
 
-        const medicines = matchMedicines(names);
-        const finalMedicines = medicines.length > 0 ? medicines : sampleMedicines;
-        setMatchedMedicines(finalMedicines);
-        setActiveInteractions(filterInteractions(finalMedicines));
-        setActiveFoodInteractions(filterFoodInteractions(finalMedicines));
-
-        setTimeout(() => setState('results'), 600);
-      } else {
-        setCurrentStep(step);
-      }
-    }, 700);
+    if (names.length > 0) {
+      await runAIAnalysis(names);
+    } else {
+      toast.info('No medicines found in text. Using demo data.');
+      await runAIAnalysis(sampleMedicines.map(m => m.name));
+    }
   };
 
   const startProcessing = () => {
@@ -182,24 +184,17 @@ const CheckMedicines = () => {
       processWithOCR();
     } else if (inputMode === 'manual' && manualInput.trim()) {
       processManualInput();
-    } else if (inputMode === 'upload' && !uploadedFile) {
-      // No file uploaded - use demo
-      setMatchedMedicines(sampleMedicines);
-      setActiveInteractions(sampleInteractions);
-      setActiveFoodInteractions(sampleFoodInteractions);
+    } else {
+      // Demo mode
       setDetectedNames(sampleMedicines.map(m => m.name));
       setState('processing');
       setCurrentStep(0);
-      let step = 0;
-      const interval = setInterval(() => {
-        step++;
-        if (step >= processingSteps.length) {
-          clearInterval(interval);
-          setTimeout(() => setState('results'), 600);
-        } else {
-          setCurrentStep(step);
-        }
-      }, 900);
+      (async () => {
+        await new Promise(r => setTimeout(r, 400));
+        setCurrentStep(1);
+        await new Promise(r => setTimeout(r, 400));
+        await runAIAnalysis(sampleMedicines.map(m => m.name));
+      })();
     }
   };
 
@@ -210,9 +205,11 @@ const CheckMedicines = () => {
       return;
     }
     const criticals = activeInteractions.filter(i => i.severity === 'critical');
-    const text = criticals.length > 0
-      ? `Safety Report: ${criticals.length} critical interactions found. ${criticals.map(i => `${i.medicine1} and ${i.medicine2}: ${i.description}`).join('. ')}`
-      : `Safety Report: ${matchedMedicines.length} medicines analyzed. No critical interactions found. All combinations appear safe.`;
+    const text = aiSummary
+      ? `Safety Report: ${aiSummary}`
+      : criticals.length > 0
+        ? `Safety Report: ${criticals.length} critical interactions found. ${criticals.map(i => `${i.medicine1} and ${i.medicine2}: ${i.description}`).join('. ')}`
+        : `Safety Report: ${matchedMedicines.length} medicines analyzed. No critical interactions found.`;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-IN';
     utterance.onend = () => setIsSpeaking(false);
@@ -227,8 +224,6 @@ const CheckMedicines = () => {
   const minorCount = activeInteractions.filter(i => i.severity === 'minor').length;
   const overallSeverity = criticalCount > 0 ? 'critical' : moderateCount > 0 ? 'moderate' : 'safe';
 
-  const hasDiclofenacAndEcosprin = matchedMedicines.some(m => m.name.includes('Diclofenac')) && matchedMedicines.some(m => m.name.includes('Ecosprin'));
-
   return (
     <div className="min-h-screen pt-20 pb-24">
       <div className="container mx-auto px-4 max-w-2xl">
@@ -239,6 +234,10 @@ const CheckMedicines = () => {
               <div className="text-center mb-8">
                 <h1 className="text-2xl md:text-3xl font-bold mb-2">{t('upload.title')}</h1>
                 <p className="text-muted-foreground">{t('upload.subtitle')}</p>
+                <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                  <Zap className="w-3 h-3" />
+                  Powered by Google Gemini AI
+                </div>
               </div>
 
               {/* Mode toggle */}
@@ -303,7 +302,6 @@ const CheckMedicines = () => {
                             if (input) {
                               input.removeAttribute('capture');
                               input.click();
-                              // Restore capture for next time
                               setTimeout(() => input.setAttribute('capture', 'environment'), 100);
                             }
                           }}
@@ -336,7 +334,7 @@ const CheckMedicines = () => {
                       <div className="p-3 bg-success/10 flex items-center gap-2">
                         <Check className="w-4 h-4 text-success" />
                         <span className="text-sm text-success font-medium">
-                          Image ready for OCR analysis
+                          Image ready for OCR + AI analysis
                         </span>
                         <span className="text-xs text-muted-foreground ml-auto">
                           {uploadedFile && `${(uploadedFile.size / 1024).toFixed(0)} KB`}
@@ -358,13 +356,12 @@ const CheckMedicines = () => {
 
               <Button
                 onClick={startProcessing}
-                disabled={inputMode === 'upload' && !uploadedFile && false} // Allow demo mode
                 className="w-full mt-6 gradient-primary text-primary-foreground py-6 rounded-xl text-lg font-semibold shadow-glow-sm hover:shadow-glow transition-all hover:-translate-y-0.5"
               >
                 {uploadedFile ? (
                   <>
-                    <FileText className="w-5 h-5 mr-2" />
-                    Scan & Analyze with OCR
+                    <Zap className="w-5 h-5 mr-2" />
+                    Scan & Analyze with AI
                   </>
                 ) : (
                   <>
@@ -414,7 +411,7 @@ const CheckMedicines = () => {
               </div>
 
               {/* OCR Progress bar */}
-              {uploadedFile && (
+              {uploadedFile && currentStep < 2 && (
                 <div className="max-w-sm mx-auto mb-6">
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <motion.div
@@ -424,7 +421,7 @@ const CheckMedicines = () => {
                       transition={{ duration: 0.3 }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">{ocrProgress}% complete</p>
+                  <p className="text-xs text-muted-foreground mt-2">OCR: {ocrProgress}% complete</p>
                 </div>
               )}
 
@@ -461,7 +458,22 @@ const CheckMedicines = () => {
           {/* RESULTS STATE */}
           {state === 'results' && (
             <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              {/* OCR Debug Info (if from image) */}
+
+              {/* AI Badge */}
+              {aiPowered && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center justify-center gap-2 mb-4"
+                >
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                    <Zap className="w-3 h-3" />
+                    AI-Powered Analysis by Google Gemini
+                  </div>
+                </motion.div>
+              )}
+
+              {/* OCR Debug Info */}
               {ocrRawText && (
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -473,7 +485,7 @@ const CheckMedicines = () => {
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">OCR Detected Text</span>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono-medical leading-relaxed line-clamp-3">
-                    {ocrRawText || 'No text detected'}
+                    {ocrRawText}
                   </p>
                   {detectedNames.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -484,6 +496,20 @@ const CheckMedicines = () => {
                       ))}
                     </div>
                   )}
+                </motion.div>
+              )}
+
+              {/* AI Summary */}
+              {aiSummary && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mb-4 p-4 rounded-xl glass border border-primary/20"
+                >
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-foreground/90">{aiSummary}</p>
+                  </div>
                 </motion.div>
               )}
 
@@ -510,7 +536,6 @@ const CheckMedicines = () => {
                 <p className="text-sm text-muted-foreground">
                   {matchedMedicines.length} medicines analyzed · {activeInteractions.length} interactions checked
                 </p>
-                {/* Severity breakdown */}
                 <div className="flex justify-center gap-3 mt-3">
                   {criticalCount > 0 && (
                     <span className="px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-semibold">
@@ -558,7 +583,7 @@ const CheckMedicines = () => {
                         <div className="text-xs text-muted-foreground">{med.dosage}</div>
                         {med.genericPrice && (
                           <div className="text-xs text-success font-medium">
-                            Save ₹{med.price - med.genericPrice}
+                            Save ₹{med.price - (med.genericPrice || 0)}
                           </div>
                         )}
                       </div>
@@ -655,49 +680,40 @@ const CheckMedicines = () => {
                       );
                     })}
                   </div>
-                  {hasDiclofenacAndEcosprin && (
-                    <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 mt-3">
-                      <p className="text-xs text-foreground/80">
-                        <span className="font-semibold text-warning">⚠️ Note:</span> Diclofenac 50mg is "as-needed" only. Take after food when needed for pain, but <span className="font-semibold">NOT on the same day as Ecosprin</span> due to bleeding risk.
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
 
               {/* Schedule */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4" /> {t('results.schedule')}
-                </h3>
-                <div className="space-y-3">
-                  {sampleSchedule
-                    .filter(slot => slot.medicines.some(med => matchedMedicines.some(m => m.name === med)))
-                    .map((slot, i) => (
-                    <motion.div
-                      key={slot.time}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.1 }}
-                      className="flex items-start gap-4 glass rounded-xl p-4"
-                    >
-                      <div className="text-center min-w-[60px]">
-                        <div className="text-sm font-bold text-primary">{slot.time}</div>
-                        <div className="text-[10px] text-muted-foreground">{slot.label}</div>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {slot.medicines
-                          .filter(med => matchedMedicines.some(m => m.name === med))
-                          .map((med) => (
-                          <span key={med} className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                            {med}
-                          </span>
-                        ))}
-                      </div>
-                    </motion.div>
-                  ))}
+              {activeSchedule.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> {t('results.schedule')}
+                  </h3>
+                  <div className="space-y-3">
+                    {activeSchedule.map((slot, i) => (
+                      <motion.div
+                        key={slot.time}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="flex items-start gap-4 glass rounded-xl p-4"
+                      >
+                        <div className="text-center min-w-[60px]">
+                          <div className="text-sm font-bold text-primary">{slot.time}</div>
+                          <div className="text-[10px] text-muted-foreground">{slot.label}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {slot.medicines.map((med) => (
+                            <span key={med} className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
+                              {med}
+                            </span>
+                          ))}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Alternatives */}
               {matchedMedicines.some(m => m.genericPrice) && (
@@ -744,6 +760,8 @@ const CheckMedicines = () => {
                   setOcrRawText('');
                   setDetectedNames([]);
                   setManualInput('');
+                  setAiPowered(false);
+                  setAiSummary('');
                 }}
                 className="w-full gradient-primary text-primary-foreground py-6 rounded-xl text-lg font-semibold shadow-glow-sm"
               >

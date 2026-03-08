@@ -34,6 +34,8 @@ const foodSeverityOrder = { avoid: 0, caution: 1, timing: 2 };
 
 const CheckMedicines = () => {
   const { t } = useLanguage();
+  const processingSteps = getProcessingSteps(t);
+  const severityConfig = getSeverityConfig(t);
   const [state, setState] = useState<AppState>('input');
   const [inputMode, setInputMode] = useState<'upload' | 'manual'>('upload');
   const [manualInput, setManualInput] = useState('');

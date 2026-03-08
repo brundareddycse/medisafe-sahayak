@@ -502,15 +502,15 @@ const CheckMedicines = () => {
                    {matchedMedicines.length} {t('results.medicinesCount')} · {activeInteractions.length} {t('results.interactionsCount')}
                  </p>
                 <div className="flex justify-center gap-2 mt-3">
-                  {criticalCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-[10px] font-bold">{criticalCount} Critical</span>
-                  )}
-                  {moderateCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-md bg-warning/10 text-warning text-[10px] font-bold">{moderateCount} Moderate</span>
-                  )}
-                  {minorCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-md bg-success/10 text-success text-[10px] font-bold">{minorCount} Safe</span>
-                  )}
+                   {criticalCount > 0 && (
+                     <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-[10px] font-bold">{criticalCount} {t('results.critical')}</span>
+                   )}
+                   {moderateCount > 0 && (
+                     <span className="px-2 py-0.5 rounded-md bg-warning/10 text-warning text-[10px] font-bold">{moderateCount} {t('results.moderate')}</span>
+                   )}
+                   {minorCount > 0 && (
+                     <span className="px-2 py-0.5 rounded-md bg-success/10 text-success text-[10px] font-bold">{minorCount} {t('results.minor')}</span>
+                   )}
                 </div>
                 <div className="mt-4">
                   <Button size="sm" variant="outline" onClick={handleSpeak} className="rounded-lg gap-1.5 h-8 text-xs">

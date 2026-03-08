@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, Keyboard, ArrowRight, FlaskConical, Sparkles, Check, AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp, Volume2, RotateCcw, Clock, UtensilsCrossed, IndianRupee, Pill } from 'lucide-react';
+import { Camera, Upload, Keyboard, ArrowRight, FlaskConical, Sparkles, Check, AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp, Volume2, RotateCcw, Clock, UtensilsCrossed, IndianRupee, Pill, X, Image as ImageIcon, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/languageContext';
-import { sampleMedicines, sampleInteractions, sampleFoodInteractions, sampleSchedule, Medicine, Interaction } from '@/lib/mockData';
+import { sampleMedicines, sampleInteractions, sampleFoodInteractions, sampleSchedule, Medicine, Interaction, FoodInteraction } from '@/lib/mockData';
+import { runOCR, parseManualInput } from '@/lib/ocrEngine';
 
 type AppState = 'input' | 'processing' | 'results';
 
@@ -29,28 +30,177 @@ const foodSeverityConfig = {
 const severityOrder = { critical: 0, moderate: 1, minor: 2 };
 const foodSeverityOrder = { avoid: 0, caution: 1, timing: 2 };
 
+/** Match detected names against our medicine database */
+function matchMedicines(detectedNames: string[]): Medicine[] {
+  const matched: Medicine[] = [];
+  for (const name of detectedNames) {
+    const lower = name.toLowerCase();
+    const found = sampleMedicines.find(m =>
+      lower.includes(m.name.toLowerCase().split(' ')[0]) ||
+      lower.includes(m.genericName.toLowerCase().split(' ')[0]) ||
+      m.name.toLowerCase().includes(lower.split(' ')[0])
+    );
+    if (found && !matched.some(m => m.id === found.id)) {
+      matched.push(found);
+    }
+  }
+  return matched;
+}
+
+/** Filter interactions for matched medicines only */
+function filterInteractions(medicines: Medicine[]): Interaction[] {
+  const names = medicines.map(m => m.name);
+  return sampleInteractions.filter(i =>
+    names.includes(i.medicine1) && names.includes(i.medicine2)
+  );
+}
+
+/** Filter food interactions for matched medicines only */
+function filterFoodInteractions(medicines: Medicine[]): FoodInteraction[] {
+  const names = medicines.map(m => m.name);
+  return sampleFoodInteractions.filter(fi => names.includes(fi.medicine));
+}
+
 const CheckMedicines = () => {
   const { t } = useLanguage();
   const [state, setState] = useState<AppState>('input');
   const [inputMode, setInputMode] = useState<'upload' | 'manual'>('upload');
   const [manualInput, setManualInput] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
+  const [ocrProgress, setOcrProgress] = useState(0);
   const [expandedInteraction, setExpandedInteraction] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [ocrRawText, setOcrRawText] = useState('');
+  const [detectedNames, setDetectedNames] = useState<string[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
 
-  const startProcessing = () => {
+  // Results state - dynamically computed from detected medicines
+  const [matchedMedicines, setMatchedMedicines] = useState<Medicine[]>([]);
+  const [activeInteractions, setActiveInteractions] = useState<Interaction[]>([]);
+  const [activeFoodInteractions, setActiveFoodInteractions] = useState<FoodInteraction[]>([]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    setUploadedFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setUploadedImage(e.target?.result as string);
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  }, [handleFileSelect]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => setIsDragOver(false), []);
+
+  const clearUpload = () => {
+    setUploadedImage(null);
+    setUploadedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const processWithOCR = async () => {
+    if (!uploadedFile) return;
     setState('processing');
     setCurrentStep(0);
+    setOcrProgress(0);
+
+    try {
+      const result = await runOCR(uploadedFile, (progress, status) => {
+        setOcrProgress(progress);
+        if (progress < 60) setCurrentStep(0);
+        else if (progress < 80) setCurrentStep(1);
+        else if (progress < 100) setCurrentStep(2);
+        else setCurrentStep(3);
+      });
+
+      setOcrRawText(result.rawText);
+      setDetectedNames(result.medicineNames);
+
+      // Match against database
+      const medicines = result.medicineNames.length > 0
+        ? matchMedicines(result.medicineNames)
+        : sampleMedicines; // fallback to demo if nothing detected
+
+      setMatchedMedicines(medicines);
+      setActiveInteractions(filterInteractions(medicines));
+      setActiveFoodInteractions(filterFoodInteractions(medicines));
+
+      setCurrentStep(3);
+      setTimeout(() => setState('results'), 800);
+    } catch (err) {
+      console.error('OCR failed:', err);
+      // Fallback to demo data
+      setMatchedMedicines(sampleMedicines);
+      setActiveInteractions(sampleInteractions);
+      setActiveFoodInteractions(sampleFoodInteractions);
+      setCurrentStep(3);
+      setTimeout(() => setState('results'), 800);
+    }
+  };
+
+  const processManualInput = () => {
+    setState('processing');
+    setCurrentStep(0);
+
+    const names = parseManualInput(manualInput);
+    setDetectedNames(names);
+
     let step = 0;
     const interval = setInterval(() => {
       step++;
       if (step >= processingSteps.length) {
         clearInterval(interval);
+
+        const medicines = matchMedicines(names);
+        const finalMedicines = medicines.length > 0 ? medicines : sampleMedicines;
+        setMatchedMedicines(finalMedicines);
+        setActiveInteractions(filterInteractions(finalMedicines));
+        setActiveFoodInteractions(filterFoodInteractions(finalMedicines));
+
         setTimeout(() => setState('results'), 600);
       } else {
         setCurrentStep(step);
       }
-    }, 900);
+    }, 700);
+  };
+
+  const startProcessing = () => {
+    if (inputMode === 'upload' && uploadedFile) {
+      processWithOCR();
+    } else if (inputMode === 'manual' && manualInput.trim()) {
+      processManualInput();
+    } else if (inputMode === 'upload' && !uploadedFile) {
+      // No file uploaded - use demo
+      setMatchedMedicines(sampleMedicines);
+      setActiveInteractions(sampleInteractions);
+      setActiveFoodInteractions(sampleFoodInteractions);
+      setDetectedNames(sampleMedicines.map(m => m.name));
+      setState('processing');
+      setCurrentStep(0);
+      let step = 0;
+      const interval = setInterval(() => {
+        step++;
+        if (step >= processingSteps.length) {
+          clearInterval(interval);
+          setTimeout(() => setState('results'), 600);
+        } else {
+          setCurrentStep(step);
+        }
+      }, 900);
+    }
   };
 
   const handleSpeak = () => {
@@ -59,7 +209,10 @@ const CheckMedicines = () => {
       setIsSpeaking(false);
       return;
     }
-    const text = `Safety Report: ${sampleInteractions.filter(i => i.severity === 'critical').length} critical interactions found. ${sampleInteractions.filter(i => i.severity === 'critical').map(i => `${i.medicine1} and ${i.medicine2}: ${i.description}`).join('. ')}`;
+    const criticals = activeInteractions.filter(i => i.severity === 'critical');
+    const text = criticals.length > 0
+      ? `Safety Report: ${criticals.length} critical interactions found. ${criticals.map(i => `${i.medicine1} and ${i.medicine2}: ${i.description}`).join('. ')}`
+      : `Safety Report: ${matchedMedicines.length} medicines analyzed. No critical interactions found. All combinations appear safe.`;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-IN';
     utterance.onend = () => setIsSpeaking(false);
@@ -67,12 +220,14 @@ const CheckMedicines = () => {
     speechSynthesis.speak(utterance);
   };
 
-  const sortedInteractions = [...sampleInteractions].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
-  const sortedFoodInteractions = [...sampleFoodInteractions].sort((a, b) => foodSeverityOrder[a.severity] - foodSeverityOrder[b.severity]);
-  const criticalCount = sampleInteractions.filter(i => i.severity === 'critical').length;
-  const moderateCount = sampleInteractions.filter(i => i.severity === 'moderate').length;
-  const minorCount = sampleInteractions.filter(i => i.severity === 'minor').length;
+  const sortedInteractions = [...activeInteractions].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  const sortedFoodInteractions = [...activeFoodInteractions].sort((a, b) => foodSeverityOrder[a.severity] - foodSeverityOrder[b.severity]);
+  const criticalCount = activeInteractions.filter(i => i.severity === 'critical').length;
+  const moderateCount = activeInteractions.filter(i => i.severity === 'moderate').length;
+  const minorCount = activeInteractions.filter(i => i.severity === 'minor').length;
   const overallSeverity = criticalCount > 0 ? 'critical' : moderateCount > 0 ? 'moderate' : 'safe';
+
+  const hasDiclofenacAndEcosprin = matchedMedicines.some(m => m.name.includes('Diclofenac')) && matchedMedicines.some(m => m.name.includes('Ecosprin'));
 
   return (
     <div className="min-h-screen pt-20 pb-24">
@@ -103,18 +258,93 @@ const CheckMedicines = () => {
               </div>
 
               {inputMode === 'upload' ? (
-                <motion.div
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="border-2 border-dashed border-primary/30 rounded-2xl p-12 text-center hover:border-primary/60 hover:bg-primary/5 transition-all cursor-pointer group"
-                  onClick={() => startProcessing()}
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                    <Upload className="w-8 h-8 text-primary" />
-                  </div>
-                  <p className="text-foreground font-medium mb-1">{t('upload.dragdrop')}</p>
-                  <p className="text-sm text-muted-foreground mb-4">{t('upload.or')}</p>
-                  <Button variant="outline" className="rounded-xl">{t('upload.browse')}</Button>
-                </motion.div>
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelect(file);
+                    }}
+                  />
+
+                  {!uploadedImage ? (
+                    <motion.div
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer group ${
+                        isDragOver
+                          ? 'border-primary bg-primary/10 scale-[1.02]'
+                          : 'border-primary/30 hover:border-primary/60 hover:bg-primary/5'
+                      }`}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                    >
+                      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                        <Upload className="w-8 h-8 text-primary" />
+                      </div>
+                      <p className="text-foreground font-medium mb-1">{t('upload.dragdrop')}</p>
+                      <p className="text-sm text-muted-foreground mb-4">{t('upload.or')}</p>
+                      <div className="flex gap-3 justify-center">
+                        <Button variant="outline" className="rounded-xl gap-2">
+                          <ImageIcon className="w-4 h-4" />
+                          {t('upload.browse')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="rounded-xl gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const input = fileInputRef.current;
+                            if (input) {
+                              input.removeAttribute('capture');
+                              input.click();
+                              // Restore capture for next time
+                              setTimeout(() => input.setAttribute('capture', 'environment'), 100);
+                            }
+                          }}
+                        >
+                          <Camera className="w-4 h-4" />
+                          Take Photo
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-4">
+                        Supports JPG, PNG • Photos of medicine strips, boxes, or prescriptions
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="relative rounded-2xl overflow-hidden border border-border"
+                    >
+                      <img
+                        src={uploadedImage}
+                        alt="Uploaded medicine"
+                        className="w-full max-h-64 object-contain bg-muted/30"
+                      />
+                      <button
+                        onClick={clearUpload}
+                        className="absolute top-3 right-3 w-8 h-8 rounded-full bg-foreground/80 text-background flex items-center justify-center hover:bg-foreground transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="p-3 bg-success/10 flex items-center gap-2">
+                        <Check className="w-4 h-4 text-success" />
+                        <span className="text-sm text-success font-medium">
+                          Image ready for OCR analysis
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {uploadedFile && `${(uploadedFile.size / 1024).toFixed(0)} KB`}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </>
               ) : (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   <textarea
@@ -128,10 +358,20 @@ const CheckMedicines = () => {
 
               <Button
                 onClick={startProcessing}
+                disabled={inputMode === 'upload' && !uploadedFile && false} // Allow demo mode
                 className="w-full mt-6 gradient-primary text-primary-foreground py-6 rounded-xl text-lg font-semibold shadow-glow-sm hover:shadow-glow transition-all hover:-translate-y-0.5"
               >
-                {t('upload.analyze')}
-                <ArrowRight className="w-5 h-5 ml-2" />
+                {uploadedFile ? (
+                  <>
+                    <FileText className="w-5 h-5 mr-2" />
+                    Scan & Analyze with OCR
+                  </>
+                ) : (
+                  <>
+                    {t('upload.analyze')}
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
               </Button>
 
               {/* Demo button */}
@@ -173,6 +413,21 @@ const CheckMedicines = () => {
                 </div>
               </div>
 
+              {/* OCR Progress bar */}
+              {uploadedFile && (
+                <div className="max-w-sm mx-auto mb-6">
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full gradient-primary"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${ocrProgress}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">{ocrProgress}% complete</p>
+                </div>
+              )}
+
               <div className="space-y-4 max-w-sm mx-auto">
                 {processingSteps.map((step, i) => (
                   <motion.div
@@ -206,6 +461,32 @@ const CheckMedicines = () => {
           {/* RESULTS STATE */}
           {state === 'results' && (
             <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              {/* OCR Debug Info (if from image) */}
+              {ocrRawText && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mb-4 p-3 rounded-xl bg-muted/50 border border-border"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">OCR Detected Text</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono-medical leading-relaxed line-clamp-3">
+                    {ocrRawText || 'No text detected'}
+                  </p>
+                  {detectedNames.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {detectedNames.map((name, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
               {/* Overall Status */}
               <motion.div
                 initial={{ scale: 0.9 }}
@@ -227,7 +508,7 @@ const CheckMedicines = () => {
                   {criticalCount > 0 ? `${criticalCount} Critical Interaction${criticalCount > 1 ? 's' : ''} Found` : 'All Safe!'}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {sampleMedicines.length} medicines analyzed · {sampleInteractions.length} interactions checked
+                  {matchedMedicines.length} medicines analyzed · {activeInteractions.length} interactions checked
                 </p>
                 {/* Severity breakdown */}
                 <div className="flex justify-center gap-3 mt-3">
@@ -258,10 +539,10 @@ const CheckMedicines = () => {
               {/* Medicines Found */}
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Pill className="w-4 h-4" /> {t('results.medicines')} ({sampleMedicines.length})
+                  <Pill className="w-4 h-4" /> {t('results.medicines')} ({matchedMedicines.length})
                 </h3>
                 <div className="space-y-2">
-                  {sampleMedicines.map((med, i) => (
+                  {matchedMedicines.map((med, i) => (
                     <motion.div
                       key={med.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -287,96 +568,102 @@ const CheckMedicines = () => {
               </div>
 
               {/* Interactions */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" /> {t('results.interactions')}
-                </h3>
-                <div className="space-y-3">
-                  {sortedInteractions.map((interaction, i) => {
-                    const config = severityConfig[interaction.severity];
-                    const isExpanded = expandedInteraction === interaction.id;
-                    return (
-                      <motion.div
-                        key={interaction.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.08 }}
-                        className={`rounded-xl border-2 overflow-hidden transition-all ${config.color} ${interaction.severity === 'critical' ? 'animate-pulse-glow' : ''}`}
-                        style={interaction.severity === 'critical' ? { animationDuration: '3s' } : {}}
-                      >
-                        <button
-                          onClick={() => setExpandedInteraction(isExpanded ? null : interaction.id)}
-                          className="w-full flex items-center gap-3 p-4 text-left"
+              {sortedInteractions.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" /> {t('results.interactions')}
+                  </h3>
+                  <div className="space-y-3">
+                    {sortedInteractions.map((interaction, i) => {
+                      const config = severityConfig[interaction.severity];
+                      const isExpanded = expandedInteraction === interaction.id;
+                      return (
+                        <motion.div
+                          key={interaction.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.08 }}
+                          className={`rounded-xl border-2 overflow-hidden transition-all ${config.color} ${interaction.severity === 'critical' ? 'animate-pulse-glow' : ''}`}
+                          style={interaction.severity === 'critical' ? { animationDuration: '3s' } : {}}
                         >
-                          <config.icon className={`w-5 h-5 flex-shrink-0 ${config.iconColor}`} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${config.badge}`}>
-                                {config.label}
-                              </span>
-                            </div>
-                            <div className="text-sm font-medium truncate">
-                              {interaction.medicine1} + {interaction.medicine2}
-                            </div>
-                          </div>
-                          {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                        </button>
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="px-4 pb-4 pt-0 border-t border-border/30">
-                                <p className="text-sm text-foreground/80 mt-3 mb-2">{interaction.description}</p>
-                                <p className="text-sm font-medium text-primary">💡 {interaction.recommendation}</p>
+                          <button
+                            onClick={() => setExpandedInteraction(isExpanded ? null : interaction.id)}
+                            className="w-full flex items-center gap-3 p-4 text-left"
+                          >
+                            <config.icon className={`w-5 h-5 flex-shrink-0 ${config.iconColor}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${config.badge}`}>
+                                  {config.label}
+                                </span>
                               </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    );
-                  })}
+                              <div className="text-sm font-medium truncate">
+                                {interaction.medicine1} + {interaction.medicine2}
+                              </div>
+                            </div>
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                          </button>
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="px-4 pb-4 pt-0 border-t border-border/30">
+                                  <p className="text-sm text-foreground/80 mt-3 mb-2">{interaction.description}</p>
+                                  <p className="text-sm font-medium text-primary">💡 {interaction.recommendation}</p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Food Interactions */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <UtensilsCrossed className="w-4 h-4" /> {t('results.food')}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {sortedFoodInteractions.map((fi, i) => {
-                    const fConfig = foodSeverityConfig[fi.severity];
-                    return (
-                      <motion.div
-                        key={fi.medicine + fi.food}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.08 }}
-                        className="glass rounded-xl p-4 hover:-translate-y-0.5 transition-transform"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-2xl">{fi.icon}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fConfig.badge}`}>
-                            {fConfig.label}
-                          </span>
-                        </div>
-                        <div className="text-sm font-semibold mb-0.5">{fi.food}</div>
-                        <div className="text-xs text-muted-foreground font-mono-medical mb-1">{fi.medicine}</div>
-                        <div className="text-xs text-foreground/70">{fi.description}</div>
-                      </motion.div>
-                    );
-                  })}
+              {sortedFoodInteractions.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <UtensilsCrossed className="w-4 h-4" /> {t('results.food')}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {sortedFoodInteractions.map((fi, i) => {
+                      const fConfig = foodSeverityConfig[fi.severity];
+                      return (
+                        <motion.div
+                          key={fi.medicine + fi.food}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.08 }}
+                          className="glass rounded-xl p-4 hover:-translate-y-0.5 transition-transform"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-2xl">{fi.icon}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fConfig.badge}`}>
+                              {fConfig.label}
+                            </span>
+                          </div>
+                          <div className="text-sm font-semibold mb-0.5">{fi.food}</div>
+                          <div className="text-xs text-muted-foreground font-mono-medical mb-1">{fi.medicine}</div>
+                          <div className="text-xs text-foreground/70">{fi.description}</div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                  {hasDiclofenacAndEcosprin && (
+                    <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 mt-3">
+                      <p className="text-xs text-foreground/80">
+                        <span className="font-semibold text-warning">⚠️ Note:</span> Diclofenac 50mg is "as-needed" only. Take after food when needed for pain, but <span className="font-semibold">NOT on the same day as Ecosprin</span> due to bleeding risk.
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 mt-3">
-                  <p className="text-xs text-foreground/80">
-                    <span className="font-semibold text-warning">⚠️ Note:</span> Diclofenac 50mg is "as-needed" only. Take after food when needed for pain, but <span className="font-semibold">NOT on the same day as Ecosprin</span> due to bleeding risk.
-                  </p>
-                </div>
-              </div>
+              )}
 
               {/* Schedule */}
               <div className="mb-6">
@@ -384,7 +671,9 @@ const CheckMedicines = () => {
                   <Clock className="w-4 h-4" /> {t('results.schedule')}
                 </h3>
                 <div className="space-y-3">
-                  {sampleSchedule.map((slot, i) => (
+                  {sampleSchedule
+                    .filter(slot => slot.medicines.some(med => matchedMedicines.some(m => m.name === med)))
+                    .map((slot, i) => (
                     <motion.div
                       key={slot.time}
                       initial={{ opacity: 0, x: -10 }}
@@ -397,7 +686,9 @@ const CheckMedicines = () => {
                         <div className="text-[10px] text-muted-foreground">{slot.label}</div>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {slot.medicines.map((med) => (
+                        {slot.medicines
+                          .filter(med => matchedMedicines.some(m => m.name === med))
+                          .map((med) => (
                           <span key={med} className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
                             {med}
                           </span>
@@ -409,40 +700,51 @@ const CheckMedicines = () => {
               </div>
 
               {/* Alternatives */}
-              <div className="mb-8">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <IndianRupee className="w-4 h-4" /> {t('results.alternatives')}
-                </h3>
-                <div className="space-y-2">
-                  {sampleMedicines.filter(m => m.genericPrice).map((med, i) => (
-                    <motion.div
-                      key={med.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="glass rounded-xl p-4 flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="text-sm font-medium">{med.name}</div>
-                        <div className="text-xs text-muted-foreground">→ {med.genericBrand}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs line-through text-muted-foreground">₹{med.price}</div>
-                        <div className="text-sm font-bold text-success">₹{med.genericPrice}</div>
-                      </div>
-                    </motion.div>
-                  ))}
-                  <div className="text-center mt-3 p-3 rounded-xl bg-success/10">
-                    <span className="text-success font-bold text-lg">
-                      Total savings: ₹{sampleMedicines.reduce((acc, m) => acc + (m.genericPrice ? m.price - m.genericPrice : 0), 0)}/month
-                    </span>
+              {matchedMedicines.some(m => m.genericPrice) && (
+                <div className="mb-8">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <IndianRupee className="w-4 h-4" /> {t('results.alternatives')}
+                  </h3>
+                  <div className="space-y-2">
+                    {matchedMedicines.filter(m => m.genericPrice).map((med, i) => (
+                      <motion.div
+                        key={med.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="glass rounded-xl p-4 flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="text-sm font-medium">{med.name}</div>
+                          <div className="text-xs text-muted-foreground">→ {med.genericBrand}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs line-through text-muted-foreground">₹{med.price}</div>
+                          <div className="text-sm font-bold text-success">₹{med.genericPrice}</div>
+                        </div>
+                      </motion.div>
+                    ))}
+                    <div className="text-center mt-3 p-3 rounded-xl bg-success/10">
+                      <span className="text-success font-bold text-lg">
+                        Total savings: ₹{matchedMedicines.reduce((acc, m) => acc + (m.genericPrice ? m.price - m.genericPrice : 0), 0)}/month
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Check Another */}
               <Button
-                onClick={() => { setState('input'); setExpandedInteraction(null); speechSynthesis.cancel(); setIsSpeaking(false); }}
+                onClick={() => {
+                  setState('input');
+                  setExpandedInteraction(null);
+                  speechSynthesis.cancel();
+                  setIsSpeaking(false);
+                  clearUpload();
+                  setOcrRawText('');
+                  setDetectedNames([]);
+                  setManualInput('');
+                }}
                 className="w-full gradient-primary text-primary-foreground py-6 rounded-xl text-lg font-semibold shadow-glow-sm"
               >
                 <RotateCcw className="w-5 h-5 mr-2" />

@@ -10,11 +10,11 @@ import { toast } from 'sonner';
 
 type AppState = 'input' | 'processing' | 'results';
 
-const processingSteps = [
-  { key: 'reading', icon: Camera, label: 'Reading medicine text...' },
-  { key: 'identifying', icon: FlaskConical, label: 'Identifying medicines...' },
-  { key: 'checking', icon: Sparkles, label: 'AI analyzing interactions...' },
-  { key: 'generating', icon: Check, label: 'Generating safety report...' },
+const getProcessingSteps = (t: (key: string) => string) => [
+  { key: 'reading', icon: Camera, label: t('processing.reading') },
+  { key: 'identifying', icon: FlaskConical, label: t('processing.identifying') },
+  { key: 'checking', icon: Sparkles, label: t('processing.checking') },
+  { key: 'generating', icon: Check, label: t('processing.generating') },
 ];
 
 const severityConfig = {

@@ -437,7 +437,7 @@ const CheckMedicines = () => {
                 >
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-[10px] font-semibold tracking-wide uppercase">
                     <Zap className="w-3 h-3" />
-                    AI-Powered Analysis
+                    {t('results.aiBadge')}
                   </div>
                 </motion.div>
               )}

@@ -17,11 +17,11 @@ const getProcessingSteps = (t: (key: string) => string) => [
   { key: 'generating', icon: Check, label: t('processing.generating') },
 ];
 
-const severityConfig = {
-  critical: { color: 'border-destructive/40 bg-destructive/5', icon: AlertTriangle, iconColor: 'text-destructive', badge: 'bg-destructive text-destructive-foreground', label: 'Critical' },
-  moderate: { color: 'border-warning/40 bg-warning/5', icon: AlertCircle, iconColor: 'text-warning', badge: 'bg-warning text-warning-foreground', label: 'Moderate' },
-  minor: { color: 'border-success/40 bg-success/5', icon: Info, iconColor: 'text-success', badge: 'bg-success text-success-foreground', label: 'Minor' },
-};
+const getSeverityConfig = (t: (key: string) => string) => ({
+  critical: { color: 'border-destructive/40 bg-destructive/5', icon: AlertTriangle, iconColor: 'text-destructive', badge: 'bg-destructive text-destructive-foreground', label: t('results.critical') },
+  moderate: { color: 'border-warning/40 bg-warning/5', icon: AlertCircle, iconColor: 'text-warning', badge: 'bg-warning text-warning-foreground', label: t('results.moderate') },
+  minor: { color: 'border-success/40 bg-success/5', icon: Info, iconColor: 'text-success', badge: 'bg-success text-success-foreground', label: t('results.minor') },
+});
 
 const foodSeverityConfig = {
   avoid: { badge: 'bg-destructive text-destructive-foreground', label: '🚫 Avoid' },

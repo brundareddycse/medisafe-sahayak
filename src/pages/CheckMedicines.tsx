@@ -339,7 +339,7 @@ const CheckMedicines = () => {
                 className="w-full mt-5 gradient-primary text-primary-foreground py-5 rounded-xl text-sm font-semibold shadow-glow-sm hover:shadow-glow transition-all duration-300 hover:-translate-y-0.5 group"
               >
                 {uploadedFile ? (
-                  <><Zap className="w-4 h-4 mr-1.5" /> Scan & Analyze</>
+                  <><Zap className="w-4 h-4 mr-1.5" /> {t('upload.scanAnalyze')}</>
                 ) : (
                   <>{t('upload.analyze')} <ArrowRight className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform" /></>
                 )}

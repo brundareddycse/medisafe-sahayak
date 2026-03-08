@@ -60,7 +60,7 @@ const Index = () => {
             <motion.div custom={0} initial="hidden" animate="visible" variants={fadeUp}>
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/10 text-primary-glow text-xs font-semibold tracking-wide uppercase mb-8">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary-glow animate-pulse" />
-                India's AI Medicine Safety Checker
+                {t('hero.badge')}
               </div>
             </motion.div>
 
@@ -156,7 +156,7 @@ const Index = () => {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-semibold tracking-wide uppercase mb-4">
               <Sparkles className="w-3 h-3" />
-              Simple Process
+              {t('how.badge')}
             </div>
             <h2 className="text-3xl md:text-4xl font-bold">{t('how.title')}</h2>
           </motion.div>
@@ -208,13 +208,13 @@ const Index = () => {
             <div className="relative text-center">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-foreground/15 bg-primary-foreground/5 text-xs text-primary-glow font-semibold mb-6">
                 <Zap className="w-3 h-3" />
-                Free Forever
+                {t('cta.badge')}
               </div>
               <h2 className="text-2xl md:text-3xl font-bold text-primary-foreground mb-3">
-                Don't risk dangerous drug interactions
+                {t('cta.title')}
               </h2>
               <p className="text-primary-foreground/50 mb-8 text-sm">
-                Check your medicines now. It takes less than 30 seconds.
+                {t('cta.subtitle')}
               </p>
               <Button
                 size="lg"
@@ -238,8 +238,8 @@ const Index = () => {
             </div>
             <span className="text-sm font-bold">MediSafe AI</span>
           </div>
-          <p className="text-xs text-muted-foreground">Built with ❤️ in India. Free forever. No data stored.</p>
-          <p className="mt-1 text-[10px] text-muted-foreground/60">⚠️ This tool provides guidance only. Always consult your doctor.</p>
+          <p className="text-xs text-muted-foreground">{t('footer.tagline')}</p>
+          <p className="mt-1 text-[10px] text-muted-foreground/60">{t('footer.disclaimer')}</p>
         </div>
       </footer>
     </div>

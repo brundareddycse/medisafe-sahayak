@@ -315,7 +315,7 @@ const CheckMedicines = () => {
                       </button>
                       <div className="p-3 bg-success/10 border-t border-success/20 flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-success" />
-                        <span className="text-xs text-success font-medium">Image ready for analysis</span>
+                        <span className="text-xs text-success font-medium">{t('upload.imageReady')}</span>
                         <span className="text-[10px] text-muted-foreground ml-auto font-mono-medical">
                           {uploadedFile && `${(uploadedFile.size / 1024).toFixed(0)} KB`}
                         </span>

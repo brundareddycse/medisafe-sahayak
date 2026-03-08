@@ -717,6 +717,7 @@ const CheckMedicines = () => {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
     </div>
   );

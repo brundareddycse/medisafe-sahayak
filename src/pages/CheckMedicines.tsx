@@ -202,9 +202,9 @@ const CheckMedicines = () => {
   const overallSeverity = criticalCount > 0 ? 'critical' : moderateCount > 0 ? 'moderate' : 'safe';
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       {/* Hero header matching home page */}
-      <div className="gradient-hero relative overflow-hidden pt-20 pb-10">
+      <div className="gradient-hero relative overflow-hidden pt-20 pb-16">
         <div className="absolute inset-0 bg-grid opacity-[0.04]" />
         <div className="absolute top-10 left-1/4 w-[400px] h-[400px] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
         <div className="relative container mx-auto px-4 max-w-2xl text-center">
@@ -217,12 +217,14 @@ const CheckMedicines = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 max-w-2xl pb-24 -mt-4">
-        <AnimatePresence mode="wait">
+      {/* Main content card overlapping hero */}
+      <div className="container mx-auto px-4 max-w-2xl -mt-6 pb-24 relative z-10">
+        <div className="bg-card rounded-2xl shadow-elevated border border-border/50 p-5 md:p-6">
+          <AnimatePresence mode="wait">
 
-          {/* ══════ INPUT STATE ══════ */}
-          {state === 'input' && (
-            <motion.div key="input" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+            {/* ══════ INPUT STATE ══════ */}
+            {state === 'input' && (
+              <motion.div key="input" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
 
 
               {/* Mode toggle */}

@@ -292,7 +292,7 @@ const CheckMedicines = () => {
                   <AlertTriangle className="w-4 h-4" /> {t('results.interactions')}
                 </h3>
                 <div className="space-y-3">
-                  {sampleInteractions.map((interaction, i) => {
+                  {sortedInteractions.map((interaction, i) => {
                     const config = severityConfig[interaction.severity];
                     const isExpanded = expandedInteraction === interaction.id;
                     return (

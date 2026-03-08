@@ -348,20 +348,28 @@ const CheckMedicines = () => {
                   <UtensilsCrossed className="w-4 h-4" /> {t('results.food')}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {sampleFoodInteractions.map((fi, i) => (
-                    <motion.div
-                      key={fi.medicine + fi.food}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.08 }}
-                      className="glass rounded-xl p-4 hover:-translate-y-0.5 transition-transform"
-                    >
-                      <div className="text-2xl mb-2">{fi.icon}</div>
-                      <div className="text-sm font-semibold mb-0.5">{fi.food}</div>
-                      <div className="text-xs text-muted-foreground font-mono-medical mb-1">{fi.medicine}</div>
-                      <div className="text-xs text-foreground/70">{fi.description}</div>
-                    </motion.div>
-                  ))}
+                  {sortedFoodInteractions.map((fi, i) => {
+                    const fConfig = foodSeverityConfig[fi.severity];
+                    return (
+                      <motion.div
+                        key={fi.medicine + fi.food}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.08 }}
+                        className="glass rounded-xl p-4 hover:-translate-y-0.5 transition-transform"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-2xl">{fi.icon}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fConfig.badge}`}>
+                            {fConfig.label}
+                          </span>
+                        </div>
+                        <div className="text-sm font-semibold mb-0.5">{fi.food}</div>
+                        <div className="text-xs text-muted-foreground font-mono-medical mb-1">{fi.medicine}</div>
+                        <div className="text-xs text-foreground/70">{fi.description}</div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
 

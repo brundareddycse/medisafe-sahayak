@@ -229,6 +229,24 @@ const CheckMedicines = () => {
                 <p className="text-sm text-muted-foreground">
                   {sampleMedicines.length} medicines analyzed · {sampleInteractions.length} interactions checked
                 </p>
+                {/* Severity breakdown */}
+                <div className="flex justify-center gap-3 mt-3">
+                  {criticalCount > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-semibold">
+                      {criticalCount} Critical
+                    </span>
+                  )}
+                  {moderateCount > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-warning/10 text-warning text-xs font-semibold">
+                      {moderateCount} Moderate
+                    </span>
+                  )}
+                  {minorCount > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-success/10 text-success text-xs font-semibold">
+                      {minorCount} Safe
+                    </span>
+                  )}
+                </div>
                 <div className="flex justify-center gap-3 mt-4">
                   <Button size="sm" variant="outline" onClick={handleSpeak} className="rounded-xl gap-2">
                     <Volume2 className={`w-4 h-4 ${isSpeaking ? 'text-primary animate-pulse' : ''}`} />

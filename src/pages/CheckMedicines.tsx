@@ -202,22 +202,28 @@ const CheckMedicines = () => {
   const overallSeverity = criticalCount > 0 ? 'critical' : moderateCount > 0 ? 'moderate' : 'safe';
 
   return (
-    <div className="min-h-screen pt-20 pb-24">
-      <div className="container mx-auto px-4 max-w-2xl">
+    <div className="min-h-screen">
+      {/* Hero header matching home page */}
+      <div className="gradient-hero relative overflow-hidden pt-20 pb-10">
+        <div className="absolute inset-0 bg-grid opacity-[0.04]" />
+        <div className="absolute top-10 left-1/4 w-[400px] h-[400px] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
+        <div className="relative container mx-auto px-4 max-w-2xl text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/15 bg-white/10 text-primary-glow text-[10px] font-semibold tracking-wider uppercase mb-4">
+            <Zap className="w-3 h-3" />
+            Powered by Google Gemini AI
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight text-white">{t('upload.title')}</h1>
+          <p className="text-sm text-white/50">{t('upload.subtitle')}</p>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 max-w-2xl pb-24 -mt-4">
         <AnimatePresence mode="wait">
 
           {/* ══════ INPUT STATE ══════ */}
           {state === 'input' && (
             <motion.div key="input" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              {/* Header */}
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-[10px] font-semibold tracking-wider uppercase mb-4">
-                  <Zap className="w-3 h-3" />
-                  Powered by Google Gemini AI
-                </div>
-                <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">{t('upload.title')}</h1>
-                <p className="text-sm text-muted-foreground">{t('upload.subtitle')}</p>
-              </div>
+
 
               {/* Mode toggle */}
               <div className="flex gap-1 mb-6 p-1 rounded-xl bg-muted/60 border border-border/50">

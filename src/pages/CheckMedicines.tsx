@@ -67,8 +67,11 @@ const CheckMedicines = () => {
     speechSynthesis.speak(utterance);
   };
 
+  const sortedInteractions = [...sampleInteractions].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  const sortedFoodInteractions = [...sampleFoodInteractions].sort((a, b) => foodSeverityOrder[a.severity] - foodSeverityOrder[b.severity]);
   const criticalCount = sampleInteractions.filter(i => i.severity === 'critical').length;
   const moderateCount = sampleInteractions.filter(i => i.severity === 'moderate').length;
+  const minorCount = sampleInteractions.filter(i => i.severity === 'minor').length;
   const overallSeverity = criticalCount > 0 ? 'critical' : moderateCount > 0 ? 'moderate' : 'safe';
 
   return (

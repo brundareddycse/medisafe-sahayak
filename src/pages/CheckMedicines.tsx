@@ -689,8 +689,8 @@ const CheckMedicines = () => {
                       </motion.div>
                     ))}
                     <div className="text-center mt-3 p-3 rounded-xl bg-success/8 border border-success/15">
-                      <span className="text-success font-bold text-sm">
-                        Total savings: ₹{matchedMedicines.reduce((acc, m) => acc + (m.genericPrice ? m.price - m.genericPrice : 0), 0)}/month
+                       <span className="text-success font-bold text-sm">
+                         {t('results.totalSavings')}: ₹{matchedMedicines.reduce((acc, m) => acc + (m.genericPrice ? m.price - m.genericPrice : 0), 0)}{t('results.perMonth')}
                       </span>
                     </div>
                   </div>

@@ -60,7 +60,7 @@ const Index = () => {
             <motion.div custom={0} initial="hidden" animate="visible" variants={fadeUp}>
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/10 text-primary-glow text-xs font-semibold tracking-wide uppercase mb-8">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary-glow animate-pulse" />
-                India's AI Medicine Safety Checker
+                {t('hero.badge')}
               </div>
             </motion.div>
 

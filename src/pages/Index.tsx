@@ -156,7 +156,7 @@ const Index = () => {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-semibold tracking-wide uppercase mb-4">
               <Sparkles className="w-3 h-3" />
-              Simple Process
+              {t('how.badge')}
             </div>
             <h2 className="text-3xl md:text-4xl font-bold">{t('how.title')}</h2>
           </motion.div>

@@ -17,8 +17,17 @@ const processingSteps = [
 const severityConfig = {
   critical: { color: 'border-destructive/50 bg-destructive/5', icon: AlertTriangle, iconColor: 'text-destructive', badge: 'bg-destructive text-destructive-foreground', label: 'Critical' },
   moderate: { color: 'border-warning/50 bg-warning/5', icon: AlertCircle, iconColor: 'text-warning', badge: 'bg-warning text-warning-foreground', label: 'Moderate' },
-  minor: { color: 'border-success/50 bg-success/5', icon: Info, iconColor: 'text-success', badge: 'bg-success text-success-foreground', label: 'Safe' },
+  minor: { color: 'border-success/50 bg-success/5', icon: Info, iconColor: 'text-success', badge: 'bg-success text-success-foreground', label: 'Minor' },
 };
+
+const foodSeverityConfig = {
+  avoid: { badge: 'bg-destructive text-destructive-foreground', label: '🚫 Avoid' },
+  caution: { badge: 'bg-warning text-warning-foreground', label: '⚠️ Caution' },
+  timing: { badge: 'bg-primary text-primary-foreground', label: '🕐 Timing' },
+};
+
+const severityOrder = { critical: 0, moderate: 1, minor: 2 };
+const foodSeverityOrder = { avoid: 0, caution: 1, timing: 2 };
 
 const CheckMedicines = () => {
   const { t } = useLanguage();
@@ -58,8 +67,11 @@ const CheckMedicines = () => {
     speechSynthesis.speak(utterance);
   };
 
+  const sortedInteractions = [...sampleInteractions].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  const sortedFoodInteractions = [...sampleFoodInteractions].sort((a, b) => foodSeverityOrder[a.severity] - foodSeverityOrder[b.severity]);
   const criticalCount = sampleInteractions.filter(i => i.severity === 'critical').length;
   const moderateCount = sampleInteractions.filter(i => i.severity === 'moderate').length;
+  const minorCount = sampleInteractions.filter(i => i.severity === 'minor').length;
   const overallSeverity = criticalCount > 0 ? 'critical' : moderateCount > 0 ? 'moderate' : 'safe';
 
   return (
@@ -217,6 +229,24 @@ const CheckMedicines = () => {
                 <p className="text-sm text-muted-foreground">
                   {sampleMedicines.length} medicines analyzed · {sampleInteractions.length} interactions checked
                 </p>
+                {/* Severity breakdown */}
+                <div className="flex justify-center gap-3 mt-3">
+                  {criticalCount > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-semibold">
+                      {criticalCount} Critical
+                    </span>
+                  )}
+                  {moderateCount > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-warning/10 text-warning text-xs font-semibold">
+                      {moderateCount} Moderate
+                    </span>
+                  )}
+                  {minorCount > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-success/10 text-success text-xs font-semibold">
+                      {minorCount} Safe
+                    </span>
+                  )}
+                </div>
                 <div className="flex justify-center gap-3 mt-4">
                   <Button size="sm" variant="outline" onClick={handleSpeak} className="rounded-xl gap-2">
                     <Volume2 className={`w-4 h-4 ${isSpeaking ? 'text-primary animate-pulse' : ''}`} />
@@ -262,7 +292,7 @@ const CheckMedicines = () => {
                   <AlertTriangle className="w-4 h-4" /> {t('results.interactions')}
                 </h3>
                 <div className="space-y-3">
-                  {sampleInteractions.map((interaction, i) => {
+                  {sortedInteractions.map((interaction, i) => {
                     const config = severityConfig[interaction.severity];
                     const isExpanded = expandedInteraction === interaction.id;
                     return (
@@ -318,20 +348,33 @@ const CheckMedicines = () => {
                   <UtensilsCrossed className="w-4 h-4" /> {t('results.food')}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {sampleFoodInteractions.map((fi, i) => (
-                    <motion.div
-                      key={fi.medicine + fi.food}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.08 }}
-                      className="glass rounded-xl p-4 hover:-translate-y-0.5 transition-transform"
-                    >
-                      <div className="text-2xl mb-2">{fi.icon}</div>
-                      <div className="text-sm font-semibold mb-0.5">{fi.food}</div>
-                      <div className="text-xs text-muted-foreground font-mono-medical mb-1">{fi.medicine}</div>
-                      <div className="text-xs text-foreground/70">{fi.description}</div>
-                    </motion.div>
-                  ))}
+                  {sortedFoodInteractions.map((fi, i) => {
+                    const fConfig = foodSeverityConfig[fi.severity];
+                    return (
+                      <motion.div
+                        key={fi.medicine + fi.food}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.08 }}
+                        className="glass rounded-xl p-4 hover:-translate-y-0.5 transition-transform"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-2xl">{fi.icon}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fConfig.badge}`}>
+                            {fConfig.label}
+                          </span>
+                        </div>
+                        <div className="text-sm font-semibold mb-0.5">{fi.food}</div>
+                        <div className="text-xs text-muted-foreground font-mono-medical mb-1">{fi.medicine}</div>
+                        <div className="text-xs text-foreground/70">{fi.description}</div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 mt-3">
+                  <p className="text-xs text-foreground/80">
+                    <span className="font-semibold text-warning">⚠️ Note:</span> Diclofenac 50mg is "as-needed" only. Take after food when needed for pain, but <span className="font-semibold">NOT on the same day as Ecosprin</span> due to bleeding risk.
+                  </p>
                 </div>
               </div>
 

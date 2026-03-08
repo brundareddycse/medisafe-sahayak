@@ -208,13 +208,13 @@ const Index = () => {
             <div className="relative text-center">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-foreground/15 bg-primary-foreground/5 text-xs text-primary-glow font-semibold mb-6">
                 <Zap className="w-3 h-3" />
-                Free Forever
+                {t('cta.badge')}
               </div>
               <h2 className="text-2xl md:text-3xl font-bold text-primary-foreground mb-3">
-                Don't risk dangerous drug interactions
+                {t('cta.title')}
               </h2>
               <p className="text-primary-foreground/50 mb-8 text-sm">
-                Check your medicines now. It takes less than 30 seconds.
+                {t('cta.subtitle')}
               </p>
               <Button
                 size="lg"

@@ -449,7 +449,7 @@ const CheckMedicines = () => {
                 >
                   <div className="flex items-center gap-2 mb-1.5">
                     <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">OCR Output</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t('results.ocrOutput')}</span>
                   </div>
                   <p className="text-[10px] text-muted-foreground font-mono-medical leading-relaxed line-clamp-2">{ocrRawText}</p>
                   {detectedNames.length > 0 && (

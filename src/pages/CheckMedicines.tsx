@@ -354,7 +354,7 @@ const CheckMedicines = () => {
 
               {/* Quick tags */}
               <div className="mt-8">
-                <p className="text-[10px] text-muted-foreground/60 text-center mb-2.5 uppercase tracking-wider font-medium">Common medicines</p>
+                <p className="text-[10px] text-muted-foreground/60 text-center mb-2.5 uppercase tracking-wider font-medium">{t('upload.commonMeds')}</p>
                 <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide justify-center flex-wrap">
                   {['Amlodipine', 'Metformin', 'Paracetamol', 'Omeprazole', 'Ecosprin', 'Thyronorm'].map((med) => (
                     <div key={med} className="px-2.5 py-1 rounded-md bg-muted/60 border border-border/50 text-[10px] font-medium text-muted-foreground">

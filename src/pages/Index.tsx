@@ -238,8 +238,8 @@ const Index = () => {
             </div>
             <span className="text-sm font-bold">MediSafe AI</span>
           </div>
-          <p className="text-xs text-muted-foreground">Built with ❤️ in India. Free forever. No data stored.</p>
-          <p className="mt-1 text-[10px] text-muted-foreground/60">⚠️ This tool provides guidance only. Always consult your doctor.</p>
+          <p className="text-xs text-muted-foreground">{t('footer.tagline')}</p>
+          <p className="mt-1 text-[10px] text-muted-foreground/60">{t('footer.disclaimer')}</p>
         </div>
       </footer>
     </div>

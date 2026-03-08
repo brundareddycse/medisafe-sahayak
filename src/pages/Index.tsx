@@ -93,7 +93,7 @@ const Index = () => {
                 variant="outline"
                 size="lg"
                 onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
-                className="text-base px-8 py-6 rounded-xl border-primary-foreground/20 text-primary-foreground/80 hover:bg-primary-foreground/5 hover:text-primary-foreground hover:-translate-y-0.5 transition-all"
+                className="text-base px-8 py-6 rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white hover:-translate-y-0.5 transition-all"
               >
                 {t('hero.ctaSecondary')}
               </Button>

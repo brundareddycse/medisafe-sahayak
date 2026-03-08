@@ -370,12 +370,13 @@ const CheckMedicines = () => {
                       </motion.div>
                     );
                   })}
-                  </div>
-                  <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 mt-2">
-                    <p className="text-xs text-foreground/80">
-                      <span className="font-semibold text-warning">⚠️ Note:</span> Diclofenac 50mg is "as-needed" only. Take after food when needed for pain, but <span className="font-semibold">NOT on the same day as Ecosprin</span> due to bleeding risk.
-                    </p>
-                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 mt-3">
+                  <p className="text-xs text-foreground/80">
+                    <span className="font-semibold text-warning">⚠️ Note:</span> Diclofenac 50mg is "as-needed" only. Take after food when needed for pain, but <span className="font-semibold">NOT on the same day as Ecosprin</span> due to bleeding risk.
+                  </p>
+                </div>
+              </div>
 
               {/* Schedule */}
               <div className="mb-6">

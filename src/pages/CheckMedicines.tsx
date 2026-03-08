@@ -495,12 +495,12 @@ const CheckMedicines = () => {
                     <AlertTriangle className={`w-7 h-7 ${overallSeverity === 'critical' ? 'text-destructive' : 'text-warning'}`} />
                   )}
                 </div>
-                <h2 className="text-lg font-bold mb-1">
-                  {criticalCount > 0 ? `${criticalCount} Critical Interaction${criticalCount > 1 ? 's' : ''} Found` : 'All Safe!'}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {matchedMedicines.length} medicines · {activeInteractions.length} interactions
-                </p>
+                 <h2 className="text-lg font-bold mb-1">
+                   {criticalCount > 0 ? `${criticalCount} ${t('results.criticalFound')}` : t('results.allSafe')}
+                 </h2>
+                 <p className="text-xs text-muted-foreground">
+                   {matchedMedicines.length} {t('results.medicinesCount')} · {activeInteractions.length} {t('results.interactionsCount')}
+                 </p>
                 <div className="flex justify-center gap-2 mt-3">
                   {criticalCount > 0 && (
                     <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-[10px] font-bold">{criticalCount} Critical</span>

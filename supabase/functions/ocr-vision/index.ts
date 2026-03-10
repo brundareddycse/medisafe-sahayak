@@ -20,27 +20,21 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
+          contents: [
             {
-              role: "user",
-              content: [
+              parts: [
                 {
-                  type: "text",
                   text: `You are a pharmacist AI. Look at this image of medicine packaging, strip, box, label, or prescription.
 
 Extract ALL medicine/drug names visible in the image. For each medicine found, include the dosage if visible (e.g. "Amlodipine 5mg", "Thyronorm 50mcg").
@@ -55,9 +49,9 @@ Rules:
 Example output: ["Thyronorm 50mcg", "Ecosprin 75mg", "Metformin 500mg"]`,
                 },
                 {
-                  type: "image_url",
-                  image_url: {
-                    url: `data:${mimeType || "image/jpeg"};base64,${imageBase64}`,
+                  inline_data: {
+                    mime_type: mimeType || "image/jpeg",
+                    data: imageBase64,
                   },
                 },
               ],
@@ -74,28 +68,21 @@ Example output: ["Thyronorm 50mcg", "Ecosprin 75mg", "Metformin 500mg"]`,
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI usage limit reached. Please try again later." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       const errorText = await response.text();
-      console.error("AI Gateway Vision error:", response.status, errorText);
-      throw new Error(`AI Gateway Vision error: ${response.status}`);
+      console.error("Gemini Vision error:", response.status, errorText);
+      throw new Error(`Gemini Vision error: ${response.status}`);
     }
 
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || "[]";
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
 
-    // Parse the JSON array from the response
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     let medicines: string[] = [];
     if (jsonMatch) {
       try {
         medicines = JSON.parse(jsonMatch[0]);
       } catch {
-        console.error("Failed to parse AI response as JSON:", text);
+        console.error("Failed to parse Gemini response as JSON:", text);
         medicines = [];
       }
     }

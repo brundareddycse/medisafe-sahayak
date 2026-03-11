@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Phone, Shield, ArrowRight, Loader2, KeyRound, Sparkles, CheckCircle2 } from 'lucide-react';
+import { X, Mail, Shield, ArrowRight, Loader2, KeyRound, Sparkles, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';

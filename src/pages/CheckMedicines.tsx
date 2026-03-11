@@ -1,12 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, Keyboard, ArrowRight, FlaskConical, Sparkles, Check, AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp, Volume2, RotateCcw, Clock, UtensilsCrossed, IndianRupee, Pill, X, Image as ImageIcon, FileText, Zap, Shield } from 'lucide-react';
+import { Camera, Upload, Keyboard, ArrowRight, FlaskConical, Sparkles, Check, AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp, Volume2, RotateCcw, Clock, UtensilsCrossed, IndianRupee, Pill, X, Image as ImageIcon, FileText, Zap, Shield, MapPin, Navigation, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/languageContext';
 import { sampleMedicines, sampleInteractions, sampleFoodInteractions, sampleSchedule, Medicine, Interaction, FoodInteraction, ScheduleItem } from '@/lib/mockData';
 import { runOCR, parseManualInput } from '@/lib/ocrEngine';
 import { analyzeMedicines, AIAnalysisResult } from '@/lib/aiAnalysis';
 import { toast } from 'sonner';
+import { getUserCity } from './Profile';
 
 type AppState = 'input' | 'processing' | 'results';
 
@@ -31,6 +32,182 @@ const foodSeverityConfig = {
 
 const severityOrder = { critical: 0, moderate: 1, minor: 2 };
 const foodSeverityOrder = { avoid: 0, caution: 1, timing: 2 };
+
+// ── Jan Aushadhi inline section ──────────────────────────────────────────────
+const JanAusdhadiSection = ({ medicines }: { medicines: { name: string; genericBrand?: string; price: number; genericPrice?: number }[] }) => {
+  const [city, setCity] = useState(getUserCity());
+  const [cityInput, setCityInput] = useState(getUserCity());
+  const [editingCity, setEditingCity] = useState(!getUserCity());
+  const [detecting, setDetecting] = useState(false);
+
+  const totalSaving = medicines.reduce((a, m) => a + (m.genericPrice ? m.price - m.genericPrice : 0), 0);
+
+  const saveCity = (val?: string) => {
+    const v = (val ?? cityInput).trim();
+    if (!v) return;
+    setCity(v); setCityInput(v);
+    localStorage.setItem('medisafe_user_city', v);
+    setEditingCity(false);
+    toast.success(`Location saved: ${v}`);
+  };
+
+  const detectLocation = () => {
+    setDetecting(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
+          const data = await res.json();
+          const detected = data.address?.city || data.address?.town || data.address?.village || '';
+          if (detected) saveCity(detected);
+          else toast.error('Could not detect city');
+        } catch { toast.error('Location error'); }
+        setDetecting(false);
+      },
+      () => { toast.error('Allow location permission'); setDetecting(false); }
+    );
+  };
+
+  const mapsUrl = city
+    ? `https://www.google.com/maps/search/Jan+Aushadhi+store+${encodeURIComponent(city)}`
+    : null;
+
+  const QUICK_CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata', 'Ahmedabad'];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.15 }}
+      className="mb-8 rounded-2xl border border-success/25 bg-success/5 overflow-hidden"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-success/15">
+        <div className="w-8 h-8 rounded-xl bg-success/15 flex items-center justify-center flex-shrink-0">
+          <span className="text-base">🏥</span>
+        </div>
+        <div className="flex-1">
+          <p className="text-xs font-bold text-success">Buy generic at Jan Aushadhi</p>
+          <p className="text-[10px] text-muted-foreground">
+            Save <span className="font-bold text-success">₹{totalSaving}/month</span> · Government certified quality
+          </p>
+        </div>
+        <div className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-success/15 border border-success/25">
+          <span className="text-[10px] font-bold text-success">-{Math.round((totalSaving / medicines.reduce((a, m) => a + m.price, 0)) * 100)}%</span>
+        </div>
+      </div>
+
+      <div className="px-4 py-3 space-y-3">
+        {/* Medicines list */}
+        <div className="space-y-1.5">
+          {medicines.map((med, i) => (
+            <div key={i} className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Pill className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                <span className="text-muted-foreground truncate">{med.name}</span>
+                {med.genericBrand && <ArrowRight className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />}
+                {med.genericBrand && <span className="font-medium text-foreground truncate">{med.genericBrand}</span>}
+              </div>
+              {med.genericPrice && (
+                <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                  <span className="text-[10px] line-through text-muted-foreground">₹{med.price}</span>
+                  <span className="text-[10px] font-bold text-success">₹{med.genericPrice}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* City section */}
+        <div className="border-t border-success/15 pt-3">
+          {city && !editingCity ? (
+            /* City saved — show Maps button */
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-success" />
+                  <span className="text-xs font-semibold">{city}</span>
+                </div>
+                <button
+                  onClick={() => setEditingCity(true)}
+                  className="text-[10px] text-muted-foreground hover:text-primary transition-colors underline"
+                >
+                  Change city
+                </button>
+              </div>
+              <motion.a
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                href={mapsUrl!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between w-full p-3.5 rounded-xl bg-success text-white font-semibold text-sm shadow-sm hover:shadow-md transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">🗺️</span>
+                  <div className="text-left">
+                    <p className="text-sm font-bold leading-tight">Find stores in {city}</p>
+                    <p className="text-white/75 text-[10px]">Opens Google Maps</p>
+                  </div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-white/80 flex-shrink-0" />
+              </motion.a>
+            </div>
+          ) : (
+            /* No city — ask for it */
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Enter your city to find nearest store</p>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={cityInput}
+                  onChange={(e) => setCityInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveCity()}
+                  placeholder="Your city..."
+                  className="flex-1 px-3 py-2.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-success/30 focus:border-success/50 transition-all"
+                  autoFocus
+                />
+                <Button
+                  onClick={() => saveCity()}
+                  disabled={!cityInput.trim()}
+                  size="sm"
+                  className="rounded-xl px-4 bg-success hover:bg-success/90 text-white flex-shrink-0 font-semibold"
+                >
+                  <MapPin className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Quick cities */}
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_CITIES.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => saveCity(c)}
+                    className="px-2.5 py-1 rounded-lg bg-card border border-border/60 text-[10px] font-medium text-muted-foreground hover:text-success hover:border-success/40 hover:bg-success/5 transition-all"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+
+              {/* GPS detect */}
+              <button
+                onClick={detectLocation}
+                disabled={detecting}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-dashed border-border hover:border-success/40 hover:bg-success/[0.03] transition-all text-xs text-muted-foreground hover:text-success font-medium disabled:opacity-60"
+              >
+                <Navigation className={`w-3.5 h-3.5 ${detecting ? 'animate-spin' : ''}`} />
+                {detecting ? 'Detecting...' : 'Auto-detect my location'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const CheckMedicines = () => {
   const { t } = useLanguage();
@@ -695,6 +872,11 @@ const CheckMedicines = () => {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Jan Aushadhi Store Finder */}
+              {matchedMedicines.some(m => m.genericPrice) && (
+                <JanAusdhadiSection medicines={matchedMedicines.filter(m => m.genericPrice)} />
               )}
 
               {/* Check Another */}

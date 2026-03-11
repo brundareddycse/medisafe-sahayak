@@ -25,6 +25,14 @@ interface MedicineRecord {
 const RELATIONS = ['Self', 'Spouse', 'Mother', 'Father', 'Son', 'Daughter', 'Grandparent', 'Other'];
 const AVATARS = ['👨', '👩', '👴', '👵', '👦', '👧', '🧑', '👶'];
 
+export function getUserCity(): string {
+  try {
+    return localStorage.getItem('user_city') || '';
+  } catch {
+    return '';
+  }
+}
+
 const Profile = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();

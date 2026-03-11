@@ -14,7 +14,7 @@ type AuthStep = 'choose' | 'email' | 'phone' | 'otp' | 'success';
 type EmailStep = 'signin' | 'signup';
 
 const AuthModal = ({ open, onClose }: AuthModalProps) => {
-  const [step, setStep] = useState<AuthStep>('choose');
+  const [step, setStep] = useState<AuthStep>('email');
   const [emailStep, setEmailStep] = useState<EmailStep>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

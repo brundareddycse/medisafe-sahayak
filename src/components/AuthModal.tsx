@@ -25,7 +25,7 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const reset = () => {
-    setStep('choose');
+    setStep('email');
     setEmail(''); setPassword(''); setPhone(''); setOtp('');
     setLoading(false); setLoadingMethod(null);
   };

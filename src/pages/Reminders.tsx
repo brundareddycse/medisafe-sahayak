@@ -172,7 +172,7 @@ const Reminders = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero header */}
-      <div className="gradient-hero relative overflow-hidden pt-20 pb-16">
+      <div className="gradient-hero relative overflow-hidden pt-28 pb-16">
         <div className="absolute inset-0 bg-grid opacity-[0.04]" />
         <div className="absolute top-10 left-1/4 w-[400px] h-[400px] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
         <div className="relative container mx-auto px-4 max-w-2xl text-center">

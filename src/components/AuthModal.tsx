@@ -55,8 +55,12 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { toast.error(error.message); setLoading(false); setLoadingMethod(null); return; }
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) { toast.error(error.message); setLoading(false); setLoadingMethod(null); return; }
+      if (data?.user && !data?.session) {
+        toast.info('Please check your email to confirm your account.');
+        setLoading(false); setLoadingMethod(null); return;
+      }
     }
     showSuccess();
   };

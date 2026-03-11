@@ -308,11 +308,22 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
                               type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com"
                               className="w-full px-4 py-3 rounded-xl border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
                             />
-                            <motion.input initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                              type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password"
-                              className="w-full px-4 py-3 rounded-xl border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
-                              onKeyDown={(e) => e.key === 'Enter' && handleEmailAuth()}
-                            />
+                            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                              className="relative"
+                            >
+                              <input
+                                type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password"
+                                className="w-full px-4 py-3 pr-11 rounded-xl border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+                                onKeyDown={(e) => e.key === 'Enter' && handleEmailAuth()}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </motion.div>
                             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
                               <Button onClick={handleEmailAuth} disabled={loading || !email || !password} className="w-full gradient-primary text-white rounded-xl py-5 text-sm font-semibold">
                                 {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Signing in...</> : emailStep === 'signin' ? 'Sign In →' : 'Create Account →'}

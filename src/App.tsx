@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/lib/languageContext";
 import Header from "@/components/Header";
 import Index from "./pages/Index";
 import CheckMedicines from "./pages/CheckMedicines";
+import Reminders from "./pages/Reminders";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/check" element={<CheckMedicines />} />
+            <Route path="/reminders" element={<Reminders />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

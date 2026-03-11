@@ -299,7 +299,10 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
                                 {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Signing in...</> : emailStep === 'signin' ? 'Sign In →' : 'Create Account →'}
                               </Button>
                             </motion.div>
-                            <button onClick={() => setStep('choose')} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors text-center">← Back</button>
+                            <div className="flex items-center gap-2 pt-1">
+                              <Sparkles className="w-3 h-3 text-primary/50 flex-shrink-0" />
+                              <p className="text-[10px] text-muted-foreground">App works without login too. Sign in to unlock history & family profiles.</p>
+                            </div>
                           </motion.div>
                         )}
 

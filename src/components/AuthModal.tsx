@@ -14,7 +14,7 @@ type AuthStep = 'choose' | 'email' | 'phone' | 'otp' | 'success';
 type EmailStep = 'signin' | 'signup';
 
 const AuthModal = ({ open, onClose }: AuthModalProps) => {
-  const [step, setStep] = useState<AuthStep>('choose');
+  const [step, setStep] = useState<AuthStep>('email');
   const [emailStep, setEmailStep] = useState<EmailStep>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +25,7 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const reset = () => {
-    setStep('choose');
+    setStep('email');
     setEmail(''); setPassword(''); setPhone(''); setOtp('');
     setLoading(false); setLoadingMethod(null);
   };
@@ -266,36 +266,6 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
                     <div className="p-5">
                       <AnimatePresence mode="wait">
 
-                        {/* Choose — go straight to email */}
-                        {step === 'choose' && (
-                          <motion.div key="choose" variants={slide} initial="enter" animate="center" exit="exit" transition={{ duration: 0.22 }} className="space-y-3">
-                            <div className="flex gap-1 p-1 rounded-xl bg-muted/60 border border-border/50">
-                              <button onClick={() => { setEmailStep('signin'); setStep('email'); }} className="flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all bg-card shadow-sm text-foreground">Sign In</button>
-                              <button onClick={() => { setEmailStep('signup'); setStep('email'); }} className="flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all text-muted-foreground">Sign Up</button>
-                            </div>
-
-                            <motion.button
-                              whileHover={{ scale: 1.02, y: -1 }}
-                              whileTap={{ scale: 0.97 }}
-                              onClick={() => setStep('email')}
-                              className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 group"
-                            >
-                              <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                                <Mail className="w-4 h-4 text-primary" />
-                              </div>
-                              <div className="flex-1 text-left">
-                                <span className="text-sm font-semibold block">Continue with Email</span>
-                                <span className="text-[10px] text-muted-foreground">Sign in or create an account</span>
-                              </div>
-                              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                            </motion.button>
-
-                            <div className="flex items-center gap-2 pt-1">
-                              <Sparkles className="w-3 h-3 text-primary/50 flex-shrink-0" />
-                              <p className="text-[10px] text-muted-foreground">App works without login too. Sign in to unlock history & family profiles.</p>
-                            </div>
-                          </motion.div>
-                        )}
 
                         {/* Email */}
                         {step === 'email' && (
@@ -329,7 +299,10 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
                                 {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Signing in...</> : emailStep === 'signin' ? 'Sign In →' : 'Create Account →'}
                               </Button>
                             </motion.div>
-                            <button onClick={() => setStep('choose')} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors text-center">← Back</button>
+                            <div className="flex items-center gap-2 pt-1">
+                              <Sparkles className="w-3 h-3 text-primary/50 flex-shrink-0" />
+                              <p className="text-[10px] text-muted-foreground">App works without login too. Sign in to unlock history & family profiles.</p>
+                            </div>
                           </motion.div>
                         )}
 

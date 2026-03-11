@@ -15,7 +15,7 @@ const Header = () => {
   const navItems = [
     { path: '/', label: t('nav.home') },
     { path: '/check', label: t('nav.check') },
-    { path: '/reminders', label: '⏰ Reminders' },
+    { path: '/reminders', label: 'Reminders' },
   ];
 
   return (

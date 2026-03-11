@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Phone, Shield, ArrowRight, Loader2, KeyRound, Sparkles, CheckCircle2 } from 'lucide-react';
+import { X, Mail, Shield, ArrowRight, Loader2, KeyRound, Sparkles, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -22,6 +22,7 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMethod, setLoadingMethod] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const reset = () => {
     setStep('choose');
@@ -54,8 +55,12 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { toast.error(error.message); setLoading(false); setLoadingMethod(null); return; }
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) { toast.error(error.message); setLoading(false); setLoadingMethod(null); return; }
+      if (data?.user && !data?.session) {
+        toast.info('Please check your email to confirm your account.');
+        setLoading(false); setLoadingMethod(null); return;
+      }
     }
     showSuccess();
   };
@@ -303,11 +308,22 @@ const AuthModal = ({ open, onClose }: AuthModalProps) => {
                               type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com"
                               className="w-full px-4 py-3 rounded-xl border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
                             />
-                            <motion.input initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                              type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password"
-                              className="w-full px-4 py-3 rounded-xl border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
-                              onKeyDown={(e) => e.key === 'Enter' && handleEmailAuth()}
-                            />
+                            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                              className="relative"
+                            >
+                              <input
+                                type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password"
+                                className="w-full px-4 py-3 pr-11 rounded-xl border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+                                onKeyDown={(e) => e.key === 'Enter' && handleEmailAuth()}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </motion.div>
                             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
                               <Button onClick={handleEmailAuth} disabled={loading || !email || !password} className="w-full gradient-primary text-white rounded-xl py-5 text-sm font-semibold">
                                 {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Signing in...</> : emailStep === 'signin' ? 'Sign In →' : 'Create Account →'}

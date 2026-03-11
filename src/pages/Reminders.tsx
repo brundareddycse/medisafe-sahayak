@@ -201,7 +201,7 @@ const Reminders = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 max-w-2xl -mt-6 pb-24 relative z-10">
+      <div className="container mx-auto px-4 max-w-2xl mt-4 pb-24 relative z-10">
 
         {/* Notification permission banner */}
         {notifPermission !== 'granted' && (

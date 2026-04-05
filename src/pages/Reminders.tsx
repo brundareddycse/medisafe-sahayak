@@ -27,25 +27,36 @@ const TIME_LABELS = [
   'Bedtime',
 ];
 
-// Simple beep sound using Web Audio API
-function playBeep() {
+// Shared AudioContext — reuse so browser doesn't block it
+let sharedAudioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext {
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  return sharedAudioCtx;
+}
+
+// Call directly inside click handler to satisfy browser autoplay policy
+async function playBeep() {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const times = [0, 0.4, 0.8];
-    times.forEach((t) => {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') await ctx.resume();
+    const beepAt = (offset: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.frequency.value = 880;
       osc.type = 'sine';
-      gain.gain.setValueAtTime(0.4, ctx.currentTime + t);
-      gain.gain.exponentialRampToConstantValue(0.001, ctx.currentTime + t + 0.3);
-      osc.start(ctx.currentTime + t);
-      osc.stop(ctx.currentTime + t + 0.3);
-    });
+      osc.frequency.setValueAtTime(880, ctx.currentTime + offset);
+      gain.gain.setValueAtTime(0, ctx.currentTime + offset);
+      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.35);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.4);
+    };
+    beepAt(0); beepAt(0.45); beepAt(0.9);
   } catch (e) {
-    console.log('Audio not supported');
+    console.warn('Audio error:', e);
   }
 }
 
@@ -88,9 +99,9 @@ const Reminders = () => {
     return () => clearInterval(id);
   }, [reminders]);
 
-  const triggerAlarm = (reminder: Reminder) => {
+  const triggerAlarm = async (reminder: Reminder) => {
     setActiveAlarm(reminder);
-    if (reminder.sound) playBeep();
+    if (reminder.sound) await playBeep();
     if (reminder.notification && notifPermission === 'granted') {
       new Notification('💊 Medicine Reminder', {
         body: `Time to take ${reminder.medicineName} — ${reminder.label}`,
@@ -159,20 +170,20 @@ const Reminders = () => {
     toast.success(newEnabled ? `Reminder set for ${reminder.time}` : 'Reminder turned off');
   };
 
-  const testAlarm = (reminder: Reminder) => {
+  const testAlarm = async (reminder: Reminder) => {
     if (!reminder.medicineName.trim()) {
       toast.error('Please enter a medicine name first');
       return;
     }
-    triggerAlarm(reminder);
+    await triggerAlarm(reminder);
   };
 
   const enabledCount = reminders.filter((r) => r.enabled && r.medicineName).length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-16">
       {/* Hero header */}
-      <div className="gradient-hero relative overflow-hidden pt-32 pb-16">
+      <div className="gradient-hero relative overflow-hidden py-12">
         <div className="absolute inset-0 bg-grid opacity-[0.04]" />
         <div className="absolute top-10 left-1/4 w-[400px] h-[400px] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
         <div className="relative container mx-auto px-4 max-w-2xl text-center">
@@ -201,25 +212,41 @@ const Reminders = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 max-w-2xl mt-4 pb-24 relative z-10">
+      <div className="container mx-auto px-4 max-w-2xl mt-6 pb-24 relative z-10">
 
         {/* Notification permission banner */}
         {notifPermission !== 'granted' && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-4 rounded-2xl bg-warning/10 border border-warning/30 flex items-center justify-between gap-3"
+            className={`mb-4 p-4 rounded-2xl flex items-center justify-between gap-3 ${
+              notifPermission === 'denied'
+                ? 'bg-destructive/10 border border-destructive/30'
+                : 'bg-warning/10 border border-warning/30'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <Bell className="w-4 h-4 text-warning flex-shrink-0" />
+              <Bell className={`w-4 h-4 flex-shrink-0 ${notifPermission === 'denied' ? 'text-destructive' : 'text-warning'}`} />
               <div>
-                <p className="text-sm font-semibold text-warning">Enable Notifications</p>
-                <p className="text-[10px] text-muted-foreground">Get popup alerts even when the app is in background</p>
+                <p className={`text-sm font-semibold ${notifPermission === 'denied' ? 'text-destructive' : 'text-warning'}`}>
+                  {notifPermission === 'denied' ? 'Notifications Blocked' : 'Enable Notifications'}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {notifPermission === 'denied'
+                    ? 'Go to browser Settings → Site permissions → Allow notifications'
+                    : 'Get popup alerts even when the app is in background'}
+                </p>
               </div>
             </div>
-            <Button size="sm" onClick={requestNotifPermission} className="gradient-primary text-primary-foreground rounded-lg text-xs h-8 flex-shrink-0">
-              Enable
-            </Button>
+            {notifPermission !== 'denied' && (
+              <Button
+                size="sm"
+                onClick={requestNotifPermission}
+                className="gradient-primary text-primary-foreground rounded-lg text-xs h-8 flex-shrink-0"
+              >
+                Enable
+              </Button>
+            )}
           </motion.div>
         )}
 

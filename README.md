@@ -1,73 +1,106 @@
-# Welcome to your Lovable project
+# MediSafe Sahayak — AI Medicine Safety Checker
 
-## Project info
+India's first AI-powered medicine safety checker for patients and caregivers.
+Scan prescriptions · Detect dangerous interactions · Find generic alternatives · Save money
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Live App: https://medisafe-sahayak.lovable.app
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## What it does
 
-**Use Lovable**
+MediSafe Sahayak ("Sahayak" means helper in Hindi) is a free web app built for Indian patients, senior citizens, and caregivers.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Scan any prescription using your phone camera — even handwritten ones
+- Detect dangerous drug interactions before they cause harm
+- Find generic alternatives that cost up to 90% less than branded medicines
+- Locate the nearest Jan Aushadhi store selling government-quality generics
+- Set medicine reminders with sound alarms so you never miss a dose
+- Manage family profiles — track medicines for parents, grandparents, spouse separately
 
-Changes made via Lovable will be committed automatically to this repo.
+Works in 6 Indian languages — English, Hindi, Telugu, Tamil, Bengali, Marathi.
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Features
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### AI Medicine Analysis
+- Upload a photo of your prescription or medicine strip
+- AI reads it using Google Gemini Vision OCR
+- Detects all medicines and checks for dangerous interactions
+- Classifies risks as Critical / Moderate / Minor
+- Shows food interactions (e.g. avoid grapefruit with certain BP medicines)
+- Gives a medicine schedule — morning, afternoon, night
+- Reads results aloud using text-to-speech
 
-Follow these steps:
+### Generic Alternatives & Savings
+- Shows cheaper generic equivalents for every branded medicine
+- Calculates exact monthly savings in rupees
+- After showing savings, instantly offers to find the nearest Jan Aushadhi store in your city
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Jan Aushadhi Store Finder
+- Enter your city or use GPS auto-detection
+- Opens Google Maps showing all nearby Jan Aushadhi Kendras
+- Also links to the official government store locator at janaushadhi.gov.in
+- Shows real savings examples (Metformin Rs 85 to Rs 12, saving 86%)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Medicine Reminders
+- Add reminders for multiple medicines with custom times
+- Labels: Empty Stomach, After Breakfast, After Lunch, After Dinner, Before Sleep
+- Sound alarm with browser notification
+- Toggle reminders on/off per medicine
 
-# Step 3: Install the necessary dependencies.
-npm i
+### User Profiles & Family Management
+- Optional login — app works fully without an account
+- Sign in with Google, Phone OTP, or Email
+- Medicine history, family profiles, saved location
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+---
 
-**Edit a file directly in GitHub**
+## Tech Stack
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Frontend: React 18 + TypeScript + Vite + Tailwind CSS
+- Animations: Framer Motion
+- Backend: Supabase (PostgreSQL + Edge Functions)
+- AI / OCR: Google Gemini 2.0 Flash
+- OCR Fallback: Tesseract.js
+- Auth: Supabase Auth
+- Hosting: Lovable
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Setup
 
-## What technologies are used for this project?
+1. Clone the repo and run npm install
+2. Create a .env file:
+   VITE_SUPABASE_URL=your-supabase-url
+   VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
+3. Add GOOGLE_API_KEY to Supabase Edge Function secrets
+4. Run npm run dev
 
-This project is built with:
+Get a free Gemini API key at aistudio.google.com (1500 requests/day free)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+## Privacy & Safety
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- No prescription data is stored on our servers
+- Login is optional — the app works fully without an account
+- Medicine interaction data is AI-generated and should not replace professional medical advice
+- Always consult your doctor or pharmacist before changing medicines
 
-## Can I connect a custom domain to my Lovable project?
+Disclaimer: MediSafe Sahayak is an informational tool only. It does not provide medical advice, diagnosis, or treatment.
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Roadmap
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Done:
+- AI prescription scanner
+- Drug interaction checker
+- Generic alternatives and savings calculator
+- Jan Aushadhi store finder
+- Medicine reminders with alarm
+- 6 Indian languages
+- Optional login and family profiles
+

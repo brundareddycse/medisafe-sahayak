@@ -27,8 +27,11 @@ const TIME_LABELS = [
   'Bedtime',
 ];
 
-// ── Sound: generate beep WAV at runtime and play via HTML Audio ───────────
-// HTML Audio works in Chrome iframes; AudioContext is blocked there
+// ── Sound: continuous alarm using HTML Audio (works in Chrome iframes) ──────
+let beepWavUrl: string | null = null;
+let alarmInterval: ReturnType<typeof setInterval> | null = null;
+let alarmAudio: HTMLAudioElement | null = null;
+
 function makeBeepWav(): string {
   const sampleRate = 8000;
   const freq = 880;
@@ -47,7 +50,7 @@ function makeBeepWav(): string {
   view.setUint32(40, dataLen, true);
   for (let i = 0; i < numSamples; i++) {
     const t = i / sampleRate;
-    const env = Math.sin(Math.PI * t / duration); // fade in/out
+    const env = Math.sin(Math.PI * t / duration);
     const s = Math.floor(env * 0.7 * 32767 * Math.sin(2 * Math.PI * freq * t));
     view.setInt16(44 + i * 2, s, true);
   }
@@ -56,21 +59,31 @@ function makeBeepWav(): string {
   return 'data:audio/wav;base64,' + btoa(bin);
 }
 
-let beepWavUrl: string | null = null;
+function startAlarmSound() {
+  stopAlarmSound(); // clear any existing
+  if (!beepWavUrl) beepWavUrl = makeBeepWav();
+  const url = beepWavUrl;
 
-function playBeep() {
-  try {
-    if (!beepWavUrl) beepWavUrl = makeBeepWav();
-    const url = beepWavUrl;
-    [0, 380, 760].forEach(delay => {
-      setTimeout(() => {
-        const a = new Audio(url);
-        a.volume = 1.0;
-        a.play().catch(err => console.warn('Beep play failed:', err));
-      }, delay);
-    });
-  } catch (e) {
-    console.warn('playBeep error:', e);
+  const playOnce = () => {
+    const a = new Audio(url);
+    a.volume = 1.0;
+    alarmAudio = a;
+    a.play().catch(err => console.warn('Alarm play failed:', err));
+  };
+
+  // Play immediately then repeat every 1.2 seconds continuously
+  playOnce();
+  alarmInterval = setInterval(playOnce, 1200);
+}
+
+function stopAlarmSound() {
+  if (alarmInterval) {
+    clearInterval(alarmInterval);
+    alarmInterval = null;
+  }
+  if (alarmAudio) {
+    alarmAudio.pause();
+    alarmAudio = null;
   }
 }
 
@@ -115,7 +128,7 @@ const Reminders = () => {
 
   const triggerAlarm = (reminder: Reminder) => {
     setActiveAlarm(reminder);
-    if (reminder.sound) playBeep();
+    if (reminder.sound) startAlarmSound();
     if (reminder.notification && notifPermission === 'granted') {
       try {
         new Notification('💊 Medicine Reminder', {
@@ -308,7 +321,7 @@ const Reminders = () => {
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => setActiveAlarm(null)}
+                  onClick={() => { stopAlarmSound(); setActiveAlarm(null); }}
                   className="bg-success text-success-foreground rounded-xl h-9 px-4 text-xs font-semibold"
                 >
                   <Check className="w-3.5 h-3.5 mr-1" /> Done

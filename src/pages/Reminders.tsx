@@ -27,36 +27,50 @@ const TIME_LABELS = [
   'Bedtime',
 ];
 
-// Shared AudioContext — reuse so browser doesn't block it
-let sharedAudioCtx: AudioContext | null = null;
-function getAudioCtx(): AudioContext {
-  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
-    sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+// ── Sound: generate beep WAV at runtime and play via HTML Audio ───────────
+// HTML Audio works in Chrome iframes; AudioContext is blocked there
+function makeBeepWav(): string {
+  const sampleRate = 8000;
+  const freq = 880;
+  const duration = 0.28;
+  const numSamples = Math.floor(sampleRate * duration);
+  const dataLen = numSamples * 2;
+  const buf = new ArrayBuffer(44 + dataLen);
+  const view = new DataView(buf);
+  const str = (off: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); view.setUint32(4, 36 + dataLen, true);
+  str(8, 'WAVE'); str(12, 'fmt ');
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true); str(36, 'data');
+  view.setUint32(40, dataLen, true);
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const env = Math.sin(Math.PI * t / duration); // fade in/out
+    const s = Math.floor(env * 0.7 * 32767 * Math.sin(2 * Math.PI * freq * t));
+    view.setInt16(44 + i * 2, s, true);
   }
-  return sharedAudioCtx;
+  let bin = '';
+  new Uint8Array(buf).forEach(b => { bin += String.fromCharCode(b); });
+  return 'data:audio/wav;base64,' + btoa(bin);
 }
 
-// Call directly inside click handler to satisfy browser autoplay policy
-async function playBeep() {
+let beepWavUrl: string | null = null;
+
+function playBeep() {
   try {
-    const ctx = getAudioCtx();
-    if (ctx.state === 'suspended') await ctx.resume();
-    const beepAt = (offset: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime + offset);
-      gain.gain.setValueAtTime(0, ctx.currentTime + offset);
-      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.35);
-      osc.start(ctx.currentTime + offset);
-      osc.stop(ctx.currentTime + offset + 0.4);
-    };
-    beepAt(0); beepAt(0.45); beepAt(0.9);
+    if (!beepWavUrl) beepWavUrl = makeBeepWav();
+    const url = beepWavUrl;
+    [0, 380, 760].forEach(delay => {
+      setTimeout(() => {
+        const a = new Audio(url);
+        a.volume = 1.0;
+        a.play().catch(err => console.warn('Beep play failed:', err));
+      }, delay);
+    });
   } catch (e) {
-    console.warn('Audio error:', e);
+    console.warn('playBeep error:', e);
   }
 }
 
@@ -99,14 +113,16 @@ const Reminders = () => {
     return () => clearInterval(id);
   }, [reminders]);
 
-  const triggerAlarm = async (reminder: Reminder) => {
+  const triggerAlarm = (reminder: Reminder) => {
     setActiveAlarm(reminder);
-    if (reminder.sound) await playBeep();
+    if (reminder.sound) playBeep();
     if (reminder.notification && notifPermission === 'granted') {
-      new Notification('💊 Medicine Reminder', {
-        body: `Time to take ${reminder.medicineName} — ${reminder.label}`,
-        icon: '/favicon.ico',
-      });
+      try {
+        new Notification('💊 Medicine Reminder', {
+          body: `Time to take ${reminder.medicineName} — ${reminder.label}`,
+          icon: '/favicon.ico',
+        });
+      } catch (_) {}
     }
     toast.success(`Time to take ${reminder.medicineName}!`, {
       description: reminder.label,
@@ -119,12 +135,30 @@ const Reminders = () => {
       toast.error('Notifications not supported in this browser');
       return;
     }
-    const perm = await Notification.requestPermission();
-    setNotifPermission(perm);
-    if (perm === 'granted') {
-      toast.success('Notifications enabled!');
-    } else {
-      toast.error('Notification permission denied');
+    // Check if running inside an iframe (Lovable preview) — notifications blocked there
+    const inIframe = window.self !== window.top;
+    if (inIframe) {
+      toast.info('Open the app in a new tab for notifications to work', {
+        description: 'Click the external link icon in Lovable to open in full tab',
+        duration: 6000,
+      });
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      setNotifPermission(perm);
+      if (perm === 'granted') {
+        toast.success('Notifications enabled! You will get alerts for medicine reminders.');
+        // Send a test notification immediately
+        new Notification('✅ MediSafe Notifications Active', {
+          body: 'You will now receive medicine reminders',
+          icon: '/favicon.ico',
+        });
+      } else if (perm === 'denied') {
+        toast.error('Permission denied. Enable from browser address bar settings.');
+      }
+    } catch (e) {
+      toast.error('Could not request notification permission');
     }
   };
 
@@ -170,12 +204,12 @@ const Reminders = () => {
     toast.success(newEnabled ? `Reminder set for ${reminder.time}` : 'Reminder turned off');
   };
 
-  const testAlarm = async (reminder: Reminder) => {
+  const testAlarm = (reminder: Reminder) => {
     if (!reminder.medicineName.trim()) {
       toast.error('Please enter a medicine name first');
       return;
     }
-    await triggerAlarm(reminder);
+    triggerAlarm(reminder);
   };
 
   const enabledCount = reminders.filter((r) => r.enabled && r.medicineName).length;

@@ -10,6 +10,8 @@ import Index from "./pages/Index";
 import CheckMedicines from "./pages/CheckMedicines";
 import Reminders from "./pages/Reminders";
 import Profile from "./pages/Profile";
+import JanAushadhi from "./pages/JanAushadhi";
+import AiPharmacist from "./pages/AiPharmacist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
               <Route path="/check" element={<CheckMedicines />} />
               <Route path="/reminders" element={<Reminders />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/jan-aushadhi" element={<JanAushadhi />} />
+              <Route path="/ai-pharmacist" element={<AiPharmacist />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
